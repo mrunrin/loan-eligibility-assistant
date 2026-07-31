@@ -1,0 +1,9 @@
+.env
+__pycache__/
+*.pyc
+.venv/
+venv/
+capstone/
+vectorstore/
+*.log
+.DS_Store
