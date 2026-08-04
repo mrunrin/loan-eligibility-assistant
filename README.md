@@ -1,155 +1,98 @@
 # Loan Eligibility Assistant
 
-A local AI-powered banking loan eligibility assistant built with FastAPI, Streamlit, ChromaDB, LangChain, and Ollama.
+A local AI-powered banking loan eligibility assistant built with FastAPI, Streamlit, ChromaDB, LangChain, Ollama, Docker, and Langfuse.
 
-The assistant answers user questions about loan eligibility rules using Retrieval-Augmented Generation (RAG) over a loan policy PDF. It returns grounded answers with source citations and can be run locally or with the FastAPI backend inside Docker.
+The application answers questions about loan eligibility rules using Retrieval-Augmented Generation over a local policy PDF. It runs fully locally, keeps source citations with answers, supports a chatbot-style Streamlit interface, and can run either directly on the machine or with the FastAPI backend inside Docker.
 
 ## Business Problem
 
-Loan pre-qualification often takes staff time and can lead to inconsistent answers. This assistant provides a consistent, document-grounded way to answer common loan eligibility questions such as income requirements, credit score, age limits, documents, debt-to-income ratio, and loan tenure.
+Loan pre-qualification takes staff time and can produce inconsistent answers. This assistant provides a consistent, document-grounded way to answer common loan eligibility questions about income, credit score, age, documents, debt-to-income ratio, tenure, and applicant type.
 
-## Current Status
+## Current Features
 
-The project currently supports:
-
-- FastAPI backend with `/ask` endpoint
-- Streamlit frontend for user questions
-- RAG pipeline over a loan eligibility PDF
+- FastAPI backend with `/ask`, `/ask/stream`, `/health`, and `/` endpoints
+- Streamlit chatbot frontend
+- Streaming answers in the UI
+- Conversation history within the same browser session
+- RAG over a local loan eligibility PDF
 - ChromaDB local vector store
-- Ollama local LLM and embedding model
-- Source citation in responses
-- Langfuse tracing wrapper
-- Docker support for the backend
+- Ollama local chat model and embedding model
+- Source citations with document, page, and excerpt
+- Langfuse tracing wrapper that does not crash the app if tracing fails
+- Local audit logs in JSONL format
+- Docker support for the FastAPI backend
 
 ## Architecture Flow
 
 ```text
 User
-  ↓
-Streamlit Frontend
-  ↓
-FastAPI Backend `/ask`
-  ↓
+  ->
+Streamlit Chatbot UI
+  ->
+FastAPI Backend
+  ->
 RAG Pipeline
-  ↓
+  ->
 ChromaDB Vector Store
-  ↓
+  ->
 Loan Eligibility PDF
-  ↓
+  ->
 Ollama LLM
-  ↓
+  ->
 Answer + Source Citation
-  ↓
-Streamlit UI
+  ->
+Streamlit Chatbot UI
+```
 
 ## Tech Stack
 
-| Layer | Tool | Why It Is Used |
+| Layer | Tool | Purpose |
 |---|---|---|
-| Frontend | Streamlit | Simple Python-based UI for fast chatbot/demo development |
-| Backend | FastAPI | API-first backend with automatic docs and clean request handling |
-| RAG Framework | LangChain | Connects PDF loading, chunking, retrieval, and LLM calls |
-| Vector Store | ChromaDB | Free local vector database for document search |
-| LLM Runtime | Ollama | Runs local open-source models without paid API keys |
-| Chat Model | llama3.2 | Local model used to generate answers |
-| Embedding Model | nomic-embed-text | Local embedding model used for vector search |
-| Tracing | Langfuse | Tracks API/RAG calls for observability and audit logs |
-| Containerization | Docker | Packages the FastAPI backend for portable execution |
+| Frontend | Streamlit | Local chatbot UI |
+| Backend | FastAPI | API layer for chat requests |
+| RAG Framework | LangChain | PDF loading, chunking, retrieval, and LLM calls |
+| Vector Store | ChromaDB | Local semantic search over policy chunks |
+| LLM Runtime | Ollama | Local open-source model execution |
+| Embeddings | Ollama embeddings | Local vector embeddings for retrieval |
+| Tracing | Langfuse | Observability around API/RAG calls |
+| Audit Logs | JSONL file | Local request metadata logging |
+| Containerization | Docker | Portable backend runtime |
 
 ## Project Structure
 
 ```text
 loan-eligibility-assistant/
-├── app/
-│   ├── main.py
-│   ├── rag.py
-│   ├── config.py
-│   ├── tracing.py
-│   └── guardrails_config.py
-├── data/
-│   └── loan_eligibility.pdf
-├── frontend/
-│   └── streamlit_app.py
-├── scripts/
-│   └── create_synthetic_pdf.py
-├── .github/
-│   └── workflows/
-│       └── eval.yml
-├── Dockerfile
-├── requirements.txt
-├── requirements-docker.txt
-├── .gitignore
-└── README.md
+|-- app/
+|   |-- main.py
+|   |-- rag.py
+|   |-- config.py
+|   |-- tracing.py
+|   |-- audit.py
+|   `-- guardrails_config.py
+|-- data/
+|   `-- loan_eligibility.pdf
+|-- frontend/
+|   `-- streamlit_app.py
+|-- scripts/
+|   `-- create_synthetic_pdf.py
+|-- Dockerfile
+|-- requirements.txt
+|-- requirements-docker.txt
+|-- .gitignore
+|-- PROJECT_GUIDE.md
+`-- README.md
+```
 
 ## Prerequisites
 
-Install the following before running the project:
+Install these tools before running the project:
 
 - Python 3.11
 - Git
 - Ollama
-- Docker Desktop, optional for Docker execution
+- Docker Desktop, only if running the backend with Docker
 
 ## Ollama Setup
-
-Start the Ollama server:
-
-```powershell
-ollama serve
-```
-
-Open a new terminal and check installed models:
-
-```powershell
-ollama list
-```
-
-Pull the required chat model:
-
-```powershell
-ollama pull llama3.2
-```
-
-Pull the required embedding model:
-
-```powershell
-ollama pull nomic-embed-text
-```
-
-Verify the chat model:
-
-```powershell
-ollama run llama3.2 "Say only: model works"
-```
-
-Verify the embedding model:
-
-```powershell
-ollama run nomic-embed-text "test embedding"
-```
-## Run Locally
-
-Open a terminal in the project folder:
-
-```powershell
-cd "C:\Mrunal\EXL\Capstone Project"
-```
-
-Create and activate a virtual environment:
-
-```powershell
-python -m venv capstone
-```
-
-```powershell
-.\capstone\Scripts\activate
-```
-
-Install dependencies:
-
-```powershell
-pip install -r requirements.txt
-```
 
 Start Ollama:
 
@@ -157,273 +100,49 @@ Start Ollama:
 ollama serve
 ```
 
-Open a new terminal, activate the environment again, and start the FastAPI backend:
-
-```powershell
-cd "C:\Capstone Project"
-```
-
-```powershell
-.\capstone\Scripts\activate
-```
-
-```powershell
-uvicorn app.main:app --reload
-```
-
-Open a new terminal, activate the environment again, and start the Streamlit frontend:
-
-```powershell
-cd "C:\Capstone Project"
-```
-
-```powershell
-.\capstone\Scripts\activate
-```
-
-```powershell
-streamlit run frontend/streamlit_app.py
-```
-
-Open the app:
-
-```text
-http://localhost:8501
-```
-
-Open the FastAPI docs:
-
-```text
-http://localhost:8000/docs
-```
-
-## Run Backend With Docker
-
-This project can run the FastAPI backend inside Docker while keeping Ollama running locally on the host machine.
-
-Start Ollama on the host machine:
-
-```powershell
-ollama serve
-```
-
-Open a new terminal in the project folder:
-
-```powershell
-cd "C:\Mrunal\EXL\Capstone Project"
-```
-
-Build the Docker image:
-
-```powershell
-docker build -t loan-eligibility-api .
-```
-
-Run the backend container:
-
-```powershell
-docker run --rm -p 8000:8000 -e OLLAMA_BASE_URL=http://host.docker.internal:11434 loan-eligibility-api
-```
-
-Open the FastAPI docs:
-
-```text
-http://localhost:8000/docs
-```
-
-Test the backend health route:
-
-```powershell
-curl http://localhost:8000/
-```
-
-Test the `/ask` endpoint:
-
-```powershell
-Invoke-RestMethod -Uri "http://localhost:8000/ask" -Method Post -ContentType "application/json" -Body '{"question":"What credit score is required?"}'
-```
-
-Run the Streamlit frontend locally in another terminal:
-
-```powershell
-cd "C:\Mrunal\EXL\Capstone Project"
-```
-
-```powershell
-.\capstone\Scripts\activate
-```
-
-```powershell
-streamlit run frontend/streamlit_app.py
-```
-
-
-## API Endpoints
-
-### Health Check
-
-```http
-GET /
-```
-
-Example request:
-
-```powershell
-curl http://localhost:8000/
-```
-
-Example response:
-
-```json
-{
-  "message": "Loan Eligibility Assistant is running"
-}
-```
-
-### Ask Question
-
-```http
-POST /ask
-```
-
-Example request:
-
-```powershell
-Invoke-RestMethod -Uri "http://localhost:8000/ask" -Method Post -ContentType "application/json" -Body '{"question":"What credit score is required?"}'
-```
-
-Example response:
-# Loan Eligibility Assistant
-
-A local AI-powered banking loan eligibility assistant built with FastAPI, Streamlit, ChromaDB, LangChain, and Ollama.
-
-The assistant answers user questions about loan eligibility rules using Retrieval-Augmented Generation (RAG) over a loan policy PDF. It returns grounded answers with source citations and can be run locally or with the FastAPI backend inside Docker.
-
-## Business Problem
-
-Loan pre-qualification often takes staff time and can lead to inconsistent answers. This assistant provides a consistent, document-grounded way to answer common loan eligibility questions such as income requirements, credit score, age limits, documents, debt-to-income ratio, and loan tenure.
-
-## Current Status
-
-The project currently supports:
-
-- FastAPI backend with `/ask` endpoint
-- Streamlit frontend for user questions
-- RAG pipeline over a loan eligibility PDF
-- ChromaDB local vector store
-- Ollama local LLM and embedding model
-- Source citation in responses
-- Langfuse tracing wrapper
-- Docker support for the backend
-
-## Architecture Flow
-
-```text
-User
-  ↓
-Streamlit Frontend
-  ↓
-FastAPI Backend /ask
-  ↓
-RAG Pipeline
-  ↓
-ChromaDB Vector Store
-  ↓
-Loan Eligibility PDF
-  ↓
-Ollama LLM
-  ↓
-Answer + Source Citation
-  ↓
-Streamlit UI
-```
-
-## Tech Stack
-
-| Layer | Tool | Why It Is Used |
-|---|---|---|
-| Frontend | Streamlit | Simple Python-based UI for fast chatbot/demo development |
-| Backend | FastAPI | API-first backend with automatic docs and clean request handling |
-| RAG Framework | LangChain | Connects PDF loading, chunking, retrieval, and LLM calls |
-| Vector Store | ChromaDB | Free local vector database for document search |
-| LLM Runtime | Ollama | Runs local open-source models without paid API keys |
-| Chat Model | llama3.2 | Local model used to generate answers |
-| Embedding Model | nomic-embed-text | Local embedding model used for vector search |
-| Tracing | Langfuse | Tracks API/RAG calls for observability and audit logs |
-| Containerization | Docker | Packages the FastAPI backend for portable execution |
-
-## Project Structure
-
-```text
-loan-eligibility-assistant/
-├── app/
-│   ├── main.py
-│   ├── rag.py
-│   ├── config.py
-│   ├── tracing.py
-│   └── guardrails_config.py
-├── data/
-│   └── loan_eligibility.pdf
-├── frontend/
-│   └── streamlit_app.py
-├── scripts/
-│   └── create_synthetic_pdf.py
-├── .github/
-│   └── workflows/
-│       └── eval.yml
-├── Dockerfile
-├── requirements.txt
-├── requirements-docker.txt
-├── .gitignore
-└── README.md
-```
-
-## Prerequisites
-
-Install the following before running the project:
-
-- Python 3.11
-- Git
-- Ollama
-- Docker Desktop, optional for Docker execution
-
-## Ollama Setup
-
-Start the Ollama server:
-
-```powershell
-ollama serve
-```
-
-Open a new terminal and check installed models:
+In a separate terminal, check available models:
 
 ```powershell
 ollama list
 ```
 
-Pull the required chat model:
+Pull the current chat model:
 
 ```powershell
-ollama pull llama3.2
+ollama pull qwen3.5:2b
 ```
 
-Pull the required embedding model:
+Pull the recommended embedding model:
 
 ```powershell
 ollama pull nomic-embed-text
 ```
 
-Verify the chat model:
+Test the chat model:
 
 ```powershell
-ollama run llama3.2 "Say only: model works"
+ollama run qwen3.5:2b "Say only: model works"
 ```
 
-Verify the embedding model:
+## Environment Variables
 
-```powershell
-ollama run nomic-embed-text "test embedding"
+Create a `.env` file in the project root if it does not already exist:
+
+```env
+CHAT_MODEL=qwen3.5:2b
+EMBEDDING_MODEL=nomic-embed-text:latest
+OLLAMA_BASE_URL=http://localhost:11434
 ```
+
+Optional Langfuse variables:
+
+```env
+LANGFUSE_PUBLIC_KEY=your_public_key
+LANGFUSE_SECRET_KEY=your_secret_key
+LANGFUSE_HOST=https://cloud.langfuse.com
+```
+
+The app still runs if Langfuse is not configured.
 
 ## Run Locally
 
@@ -445,7 +164,7 @@ Create a virtual environment:
 python -m venv capstone
 ```
 
-Activate the virtual environment on Windows:
+Activate the virtual environment:
 
 ```powershell
 .\capstone\Scripts\activate
@@ -467,9 +186,6 @@ Start the FastAPI backend in another terminal:
 
 ```powershell
 .\capstone\Scripts\activate
-```
-
-```powershell
 uvicorn app.main:app --reload
 ```
 
@@ -477,13 +193,10 @@ Start the Streamlit frontend in another terminal:
 
 ```powershell
 .\capstone\Scripts\activate
-```
-
-```powershell
 streamlit run frontend/streamlit_app.py
 ```
 
-Open the Streamlit app:
+Open the chatbot:
 
 ```text
 http://localhost:8501
@@ -497,15 +210,15 @@ http://localhost:8000/docs
 
 ## Run Backend With Docker
 
-This project can run the FastAPI backend inside Docker while keeping Ollama running locally on the host machine.
+The Docker setup runs the FastAPI backend in a container while Ollama continues running on the host machine. Ollama models are not copied into the Docker image, which keeps the image smaller.
 
-Start Ollama on the host machine:
+Start Ollama on the host:
 
 ```powershell
 ollama serve
 ```
 
-Build the Docker image from the project root:
+Build the backend image:
 
 ```powershell
 docker build -t loan-eligibility-api .
@@ -517,86 +230,106 @@ Run the backend container:
 docker run --rm -p 8000:8000 -e OLLAMA_BASE_URL=http://host.docker.internal:11434 loan-eligibility-api
 ```
 
-Open the FastAPI docs:
-
-```text
-http://localhost:8000/docs
-```
-
-Test the backend health route:
+Test the backend:
 
 ```powershell
-curl http://localhost:8000/
+Invoke-RestMethod http://localhost:8000/health
 ```
 
-Test the `/ask` endpoint:
-
-```powershell
-Invoke-RestMethod -Uri "http://localhost:8000/ask" -Method Post -ContentType "application/json" -Body '{"question":"What credit score is required?"}'
-```
-
-Run the Streamlit frontend locally in another terminal:
+Run Streamlit locally in another terminal:
 
 ```powershell
 .\capstone\Scripts\activate
-```
-
-```powershell
 streamlit run frontend/streamlit_app.py
 ```
 
-## API Endpoints
+## API Examples
 
-### Health Check
-
-```http
-GET /
-```
-
-Example request:
+Health check:
 
 ```powershell
-curl http://localhost:8000/
+Invoke-RestMethod http://localhost:8000/health
 ```
 
-Example response:
-
-```json
-{
-  "message": "Loan Eligibility Assistant is running"
-}
-```
-
-### Ask Question
-
-```http
-POST /ask
-```
-
-Example request:
+Ask a normal JSON question:
 
 ```powershell
-Invoke-RestMethod -Uri "http://localhost:8000/ask" -Method Post -ContentType "application/json" -Body '{"question":"What credit score is required?"}'
+Invoke-RestMethod -Uri "http://localhost:8000/ask" -Method Post -ContentType "application/json" -Body '{"question":"What credit score is required?","history":[]}'
 ```
 
-Example response:
+Expected response shape:
 
 ```json
 {
   "answer": "The minimum credit score required for loan eligibility is 700.",
-  "source": "data/loan_eligibility.pdf"
+  "source": "loan_eligibility.pdf, page 1",
+  "sources": [
+    {
+      "document": "loan_eligibility.pdf",
+      "page": 1,
+      "excerpt": "..."
+    }
+  ]
 }
 ```
 
-## Notes
+## Model Switching
 
-- Ollama must be running before asking questions.
-- The Docker setup keeps Ollama outside the container to avoid packaging large model files inside the image.
-- The backend uses `OLLAMA_BASE_URL=http://host.docker.internal:11434` when running inside Docker.
-- The app is designed to run fully locally without paid APIs.
-```json
-{
-  "answer": "The minimum credit score required for loan eligibility is 700.",
-  "source": "data/loan_eligibility.pdf"
-}
+Use `.env` to change the chat model:
+
+```env
+CHAT_MODEL=qwen3.5:2b
+```
+
+The model name must exactly match a tag shown by:
+
+```powershell
+ollama list
+```
+
+When using Qwen thinking models, keep thinking disabled in the application model setup if the installed `langchain_ollama` version supports it. The model is created in `app/rag.py` inside `get_chat_model()`.
+
+For live demos, `qwen3.5:2b` is the current selected model. If it becomes slow, first check RAM usage and test the model directly with Ollama before changing application code.
+
+## Troubleshooting
+
+If Streamlit says the backend is unavailable, check FastAPI:
+
+```powershell
+Invoke-RestMethod http://localhost:8000/health
+```
+
+If the backend is running but responses are slow, test Ollama directly:
+
+```powershell
+ollama run qwen3.5:2b "Reply only: ready"
+```
+
+If using Docker and Ollama cannot connect, make sure the container uses:
+
+```powershell
+-e OLLAMA_BASE_URL=http://host.docker.internal:11434
+```
+
+If the vector store behaves strangely, stop the backend, delete the local `vectorstore/` folder, and restart the backend so it rebuilds from the PDF.
+
+## Git Notes
+
+Do not commit local runtime folders or secrets:
+
+```text
+.env
+capstone/
+vectorstore/
+logs/
+__pycache__/
+```
+
+Normal commit flow:
+
+```powershell
+git status
+git add .
+git commit -m "Update documentation"
+git push
 ```

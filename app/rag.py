@@ -1,142 +1,189 @@
-from functools import lru_cache
+import logging
+import re
+import threading
+from collections.abc import Iterator
 
 from langchain_chroma import Chroma
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_ollama import ChatOllama, OllamaEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
-from app.config import CHAT_MODEL, EMBEDDING_MODEL, OLLAMA_BASE_URL
+from app.config import (
+    CHAT_MODEL,
+    EMBEDDING_MODEL,
+    MAX_HISTORY_MESSAGES,
+    OLLAMA_BASE_URL,
+    PDF_PATH,
+    VECTORSTORE_PATH,
+)
 
-PDF_PATH = "data/loan_eligibility.pdf"
-VECTORSTORE_PATH = "vectorstore"
+logger = logging.getLogger(__name__)
+_vectorstore: Chroma | None = None
+_vectorstore_lock = threading.Lock()
 
 
-@lru_cache(maxsize=1)
-def retriever():
-    loader = PyPDFLoader(PDF_PATH)
-    documents = loader.load()
+def get_chat_model() -> ChatOllama:
+    return ChatOllama(model=CHAT_MODEL, base_url=OLLAMA_BASE_URL,reasoning=False)
 
-    splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=80)
-    chunks = splitter.split_documents(documents)
 
-    embeddings = OllamaEmbeddings(model=EMBEDDING_MODEL, base_url=OLLAMA_BASE_URL)
-    vectorstore = Chroma.from_documents(
-        documents=chunks,
-        embedding=embeddings,
-        persist_directory=VECTORSTORE_PATH,
+def initialize_vectorstore() -> None:
+    """Load the persisted store once, or build it once when it is empty."""
+    global _vectorstore
+    with _vectorstore_lock:
+        if _vectorstore is not None:
+            return
+
+        embeddings = OllamaEmbeddings(model=EMBEDDING_MODEL, base_url=OLLAMA_BASE_URL)
+        store = Chroma(persist_directory=str(VECTORSTORE_PATH), embedding_function=embeddings)
+        if not store.get(limit=1).get("ids"):
+            if not PDF_PATH.exists():
+                raise FileNotFoundError(f"Policy PDF not found: {PDF_PATH}")
+            documents = PyPDFLoader(str(PDF_PATH)).load()
+            chunks = RecursiveCharacterTextSplitter(
+                chunk_size=500, chunk_overlap=80
+            ).split_documents(documents)
+            store = Chroma.from_documents(
+                documents=chunks,
+                embedding=embeddings,
+                persist_directory=str(VECTORSTORE_PATH),
+            )
+            logger.info("Built vector store with %s chunks", len(chunks))
+        _vectorstore = store
+        logger.info("Vector store is ready")
+
+
+def _conversation_context(history: list[dict], question: str) -> str:
+    previous = history[-MAX_HISTORY_MESSAGES:]
+    if previous and previous[-1].get("role") == "user" and previous[-1].get("content", "").strip() == question.strip():
+        previous = previous[:-1]
+    return "\n".join(
+        f"{message.get('role', 'user')}: {message.get('content', '')}"
+        for message in previous
     )
 
-    return vectorstore.as_retriever(search_kwargs={"k": 3})
+
+def _profile_from_history(history: list[dict]) -> dict[str, str]:
+    profile: dict[str, str] = {}
+    for message in history:
+        if message.get("role") != "user":
+            continue
+        text = message.get("content", "").strip()
+        name = re.search(r"\bmy name is\s+([A-Za-z][A-Za-z '-]{0,48})[.!]?$", text, re.I)
+        if name:
+            profile["name"] = name.group(1).strip()
+    return profile
 
 
-def classify_question(question: str, history: list[dict]) -> str:
-    history_text = "\n".join(
-        f"{message.get('role')}: {message.get('content')}"
-        for message in history[-10:]
+def _memory_response(question: str, profile: dict[str, str]) -> dict | None:
+    normalized = question.lower().replace("'", "").strip()
+    asks_for_name = "name" in normalized and any(
+        phrase in normalized for phrase in ("my name", "whats", "what is", "who am i")
     )
+    introduces_name = normalized.startswith("my name is ")
+    if introduces_name and profile.get("name"):
+        return {
+            "answer": f"Nice to meet you, {profile['name']}. I will remember that for this chat.",
+            "source": "conversation history",
+            "sources": [],
+        }
+    if asks_for_name:
+        if profile.get("name"):
+            return {
+                "answer": f"Your name is {profile['name']}.",
+                "source": "conversation history",
+                "sources": [],
+            }
+        return {
+            "answer": "You have not told me your name in this chat yet.",
+            "source": "conversation history",
+            "sources": [],
+        }
+    return None
 
-    llm = ChatOllama(model=CHAT_MODEL, base_url=OLLAMA_BASE_URL)
 
+def _is_small_talk(question: str) -> bool:
+    normalized = question.lower().strip().rstrip("!?.")
+    return normalized in {"hi", "hii", "hello", "hey", "thanks", "thank you", "bye", "good morning", "good evening"}
+
+
+def _sources(documents: list) -> list[dict]:
+    citations: list[dict] = []
+    seen_pages: set[int] = set()
+    for document in documents:
+        page = int(document.metadata.get("page", 0)) + 1
+        if page in seen_pages:
+            continue
+        seen_pages.add(page)
+        citations.append({
+            "document": PDF_PATH.name,
+            "page": page,
+            "excerpt": document.page_content[:500].strip(),
+        })
+    return citations
+
+
+def prepare_answer(question: str, history: list[dict] | None = None) -> dict:
+    history = history or []
+    profile = _profile_from_history(history)
+    memory_answer = _memory_response(question, profile)
+    if memory_answer:
+        return {"kind": "direct", **memory_answer}
+
+    if _is_small_talk(question):
+        return {
+            "kind": "direct",
+            "answer": "Hello. I can help with loan eligibility, income rules, credit scores, documents, and loan tenure.",
+            "source": "general assistant response",
+            "sources": [],
+        }
+
+    initialize_vectorstore()
+    assert _vectorstore is not None
+    documents = _vectorstore.similarity_search(question, k=3)
+    sources = _sources(documents)
+    policy_context = "\n\n".join(document.page_content for document in documents)
+    conversation_context = _conversation_context(history, question)
     prompt = f"""
-You are a message router for a banking assistant.
+You are LoanBot, a banking loan eligibility assistant.
 
-Return exactly one label:
-small_talk
-memory
-policy
-unsupported
-
-Rules:
-- Return small_talk for greetings, thanks, or casual friendly messages.
-- Return memory if the user asks about anything mentioned earlier in the conversation.
-- Return memory if the user shares personal/session details like name, role, location, goal, preference, or project status.
-- Return policy if the user asks about loan eligibility, income, credit score, documents, age, tenure, debt-to-income ratio, or banking policy.
-- Return unsupported only if the message is unrelated and not useful to remember.
+Answer only from the policy context. Use conversation history only to resolve follow-up references such as "what about self-employed applicants"; it is not a policy source.
+If the policy context does not support an answer, say you cannot confirm it from the policy and invite a loan-eligibility question. Do not claim approval or guarantee eligibility.
+Keep the answer clear, concise, and professional.
 
 Conversation history:
-{history_text}
+{conversation_context or "No earlier messages."}
+
+Policy context:
+{policy_context}
 
 User question:
 {question}
-
-Label:
 """
-    label = llm.invoke(prompt).content.strip().lower()
-    return label.split()[0].replace(":", "")
-
-
-def answer_memory_question(question: str, conversation_context: str) -> dict:
-    llm = ChatOllama(model=CHAT_MODEL, base_url=OLLAMA_BASE_URL)
-
-    prompt = f"""
-Answer the user's question using only the conversation history.
-If the answer is not present in the conversation history, say so politely.
-
-Conversation history:
-{conversation_context}
-
-User question:
-{question}
-"""
-
-    response = llm.invoke(prompt)
-
     return {
-        "answer": response.content,
-        "source": "conversation history",
+        "kind": "llm",
+        "prompt": prompt,
+        "source": f"{PDF_PATH.name}, page {sources[0]['page']}" if sources else "No policy source found",
+        "sources": sources,
     }
 
 
 def answer_question(question: str, history: list[dict] | None = None) -> dict:
-    history = history or []
-
-    recent_history = history[-10:]
-    conversation_context = "\n".join(
-        f"{message.get('role', 'user')}: {message.get('content', '')}"
-        for message in recent_history
-    )
-
-    question_type = classify_question(question, history)
-
-    if question_type == "small_talk":
-        return {
-            "answer": "Hey, good to see you. Ask me anything about loan eligibility, income rules, credit score, documents, or tenure.",
-            "source": "general assistant response",
-        }
-
-    if question_type == "memory":
-        return answer_memory_question(question, conversation_context + f"\nuser: {question}")
-    if question_type == "unsupported":
-        return {
-            "answer": "I can help with loan eligibility questions, income rules, credit score, documents, tenure, and details you shared in this chat.",
-            "source": "general assistant response",
-        }
-
-    retrievers = retriever()
-    docs = retrievers.invoke(question)
-
-    context = "\n\n".join(doc.page_content for doc in docs)
-
-    prompt = f"""
-You are LoanBot, a helpful banking loan eligibility assistant.
-
-Use the policy context to answer loan eligibility questions.
-If the answer is not in the policy context, say politely that you could not find that detail in the loan eligibility policy.
-
-Do not say "there is no context" or sound robotic.
-Keep the answer clear and short.
-
-Policy context:
-{context}
-
-User question:
-{question}
-"""
-
-    llm = ChatOllama(model=CHAT_MODEL, base_url=OLLAMA_BASE_URL)
-    response = llm.invoke(prompt)
-
+    prepared = prepare_answer(question, history)
+    if prepared["kind"] == "direct":
+        return {key: value for key, value in prepared.items() if key != "kind"}
+    response = get_chat_model().invoke(prepared["prompt"])
     return {
         "answer": response.content,
-        "source": "data/loan_eligibility.pdf",
+        "source": prepared["source"],
+        "sources": prepared["sources"],
     }
+
+
+def stream_answer(prepared: dict) -> Iterator[str]:
+    if prepared["kind"] == "direct":
+        for token in re.findall(r"\S+\s*", prepared["answer"]):
+            yield token
+        return
+    for chunk in get_chat_model().stream(prepared["prompt"]):
+        if chunk.content:
+            yield chunk.content

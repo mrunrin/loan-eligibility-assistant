@@ -6,4 +6,6 @@ venv/
 capstone/
 vectorstore/
 *.log
+logs/
 .DS_Store
+chroma_db/
