@@ -1,0 +1,34 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    environment:
+      OLLAMA_BASE_URL: http://host.docker.internal:11434
+      OLLAMA_WARMUP_TIMEOUT: 20
+      VECTORSTORE_PATH: /app/vectorstore
+      AUDIT_LOG_PATH: /app/logs/audit.jsonl
+    ports:
+      - "8000:8000"
+    volumes:
+      - vectorstore:/app/vectorstore
+      - audit_logs:/app/logs
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    environment:
+      API_URL: http://backend:8000/ask/stream
+    ports:
+      - "8501:8501"
+    depends_on:
+      - backend
+
+volumes:
+  vectorstore:
+  audit_logs:

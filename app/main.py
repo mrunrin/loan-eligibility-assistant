@@ -14,8 +14,21 @@ from pydantic import BaseModel, Field, field_validator
 from starlette.concurrency import iterate_in_threadpool
 
 from app.audit import write_audit_event
-from app.config import CHAT_MODEL, EMBEDDING_MODEL, MAX_HISTORY_MESSAGES, MAX_MESSAGE_CHARS
-from app.rag import answer_question, get_chat_model, initialize_vectorstore, prepare_answer, stream_answer
+from app.config import (
+    CHAT_MODEL,
+    EMBEDDING_MODEL,
+    FALLBACK_MODEL_PROVIDER,
+    MAX_HISTORY_MESSAGES,
+    MAX_MESSAGE_CHARS,
+    OLLAMA_WARMUP_TIMEOUT,
+)
+from app.rag import (
+    answer_question,
+    get_chat_model,
+    initialize_vectorstore,
+    prepare_answer,
+    stream_answer,
+)
 from app.tracing import langfuse
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
@@ -32,9 +45,14 @@ async def lifespan(application: FastAPI):
     except Exception:
         logger.exception("Vector store startup failed")
     try:
-        await run_in_threadpool(get_chat_model().invoke, "Reply with ready.")
+        await asyncio.wait_for(
+            run_in_threadpool(get_chat_model().invoke, "Reply with ready."),
+            timeout=OLLAMA_WARMUP_TIMEOUT,
+        )
         application.state.ollama_ready = True
         logger.info("LoanBot startup completed")
+    except TimeoutError:
+        logger.warning("Ollama warmup timed out; app will start and try per request")
     except Exception:
         logger.exception("Ollama warmup failed")
     yield
@@ -90,6 +108,7 @@ def health():
         "status": "ok" if vectorstore_ready and ollama_ready else "degraded",
         "model": CHAT_MODEL,
         "embedding_model": EMBEDDING_MODEL,
+        "fallback_provider": FALLBACK_MODEL_PROVIDER,
         "vectorstore_ready": vectorstore_ready,
         "ollama_ready": ollama_ready,
     }

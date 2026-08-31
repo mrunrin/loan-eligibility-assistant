@@ -70,6 +70,7 @@ The most important values are:
 CHAT_MODEL=qwen3.5:2b
 EMBEDDING_MODEL=nomic-embed-text:latest
 OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_WARMUP_TIMEOUT=20
 ```
 
 If this file has a wrong model name, the app may fail even when Ollama is running.
@@ -116,9 +117,21 @@ It is generated from the PDF and should not be committed to GitHub. If the PDF c
 
 This packages the FastAPI backend.
 
-The Docker image does not include Ollama models. Ollama should run on the host machine, and the container connects to it through `host.docker.internal`.
+The backend image does not include Ollama models. Ollama should run on the host machine, and the container connects to it through `host.docker.internal`.
 
 This keeps the Docker image smaller and avoids copying large local models into the image.
+
+### `Dockerfile.frontend`
+
+This packages the Streamlit frontend. It installs only Streamlit and Requests, copies the frontend folder, and runs Streamlit on port `8501`.
+
+### `docker-compose.yml`
+
+This runs the backend and frontend containers together. The frontend calls the backend through the Docker service name `backend`, while the backend calls host Ollama through `host.docker.internal`.
+
+### `.env.example`
+
+This shows the environment variables a developer can copy into `.env`. Real API keys should only go in `.env`, not in Git.
 
 ### `requirements.txt`
 
@@ -186,23 +199,23 @@ Start Ollama on the host:
 ollama serve
 ```
 
-Build the backend image:
+Run backend and frontend together:
+
+```powershell
+docker compose up --build
+```
+
+Stop backend and frontend:
+
+```powershell
+docker compose down
+```
+
+Run only the backend container:
 
 ```powershell
 docker build -t loan-eligibility-api .
-```
-
-Run the backend:
-
-```powershell
 docker run --rm -p 8000:8000 -e OLLAMA_BASE_URL=http://host.docker.internal:11434 loan-eligibility-api
-```
-
-Run Streamlit locally:
-
-```powershell
-.\capstone\Scripts\activate
-streamlit run frontend/streamlit_app.py
 ```
 
 ## How To Switch Models
@@ -234,6 +247,32 @@ ollama run qwen3.5:2b "Reply only: ready"
 ```
 
 If this command is slow, the application will also be slow.
+
+## API Fallback
+
+The primary model path is Ollama:
+
+```text
+FastAPI -> Ollama -> qwen3.5:2b
+```
+
+The fallback path is optional:
+
+```text
+FastAPI -> Groq or Hugging Face API
+```
+
+Fallback variables:
+
+```env
+FALLBACK_MODEL_PROVIDER=none
+GROQ_API_KEY=
+GROQ_MODEL=openai/gpt-oss-20b
+HF_API_KEY=
+HF_MODEL=mistralai/Mistral-7B-Instruct-v0.3
+```
+
+Fallback helps when local generation fails. It does not put any API key into Docker images; keys are injected at runtime through `.env`.
 
 ## Thinking Mode Notes
 
@@ -354,7 +393,7 @@ Inside Docker, `localhost` means the container itself, not the host machine.
 - Source citations
 - Langfuse wrapper
 - Local audit logging
-- Docker backend support
+- Docker backend and frontend support
 - GitHub repository setup
 
 ## What Can Be Improved Next

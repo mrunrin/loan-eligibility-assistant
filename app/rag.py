@@ -3,6 +3,7 @@ import re
 import threading
 from collections.abc import Iterator
 
+import requests
 from langchain_chroma import Chroma
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_ollama import ChatOllama, OllamaEmbeddings
@@ -11,6 +12,11 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from app.config import (
     CHAT_MODEL,
     EMBEDDING_MODEL,
+    FALLBACK_MODEL_PROVIDER,
+    GROQ_API_KEY,
+    GROQ_MODEL,
+    HF_API_KEY,
+    HF_MODEL,
     MAX_HISTORY_MESSAGES,
     OLLAMA_BASE_URL,
     PDF_PATH,
@@ -23,7 +29,50 @@ _vectorstore_lock = threading.Lock()
 
 
 def get_chat_model() -> ChatOllama:
-    return ChatOllama(model=CHAT_MODEL, base_url=OLLAMA_BASE_URL,reasoning=False)
+    return ChatOllama(
+        model=CHAT_MODEL,
+        base_url=OLLAMA_BASE_URL,
+        reasoning=False,
+        temperature=0,
+    )
+
+
+def _call_groq(prompt: str) -> str:
+    response = requests.post(
+        "https://api.groq.com/openai/v1/chat/completions",
+        headers={"Authorization": f"Bearer {GROQ_API_KEY}"},
+        json={
+            "model": GROQ_MODEL,
+            "messages": [{"role": "user", "content": prompt}],
+            "temperature": 0,
+            "reasoning_effort": "low",
+        },
+        timeout=120,
+    )
+    response.raise_for_status()
+    return response.json()["choices"][0]["message"]["content"]
+
+
+def _call_huggingface(prompt: str) -> str:
+    response = requests.post(
+        f"https://api-inference.huggingface.co/models/{HF_MODEL}",
+        headers={"Authorization": f"Bearer {HF_API_KEY}"},
+        json={"inputs": prompt, "parameters": {"max_new_tokens": 350}},
+        timeout=120,
+    )
+    response.raise_for_status()
+    payload = response.json()
+    if isinstance(payload, list) and payload:
+        return payload[0].get("generated_text", "").replace(prompt, "").strip()
+    return str(payload)
+
+
+def _call_fallback_model(prompt: str) -> str:
+    if FALLBACK_MODEL_PROVIDER == "groq" and GROQ_API_KEY:
+        return _call_groq(prompt)
+    if FALLBACK_MODEL_PROVIDER in {"hf", "huggingface"} and HF_API_KEY:
+        return _call_huggingface(prompt)
+    raise RuntimeError("No fallback model provider is configured.")
 
 
 def initialize_vectorstore() -> None:
@@ -122,6 +171,22 @@ def _sources(documents: list) -> list[dict]:
     return citations
 
 
+def _load_pdf_documents() -> list:
+    if not PDF_PATH.exists():
+        raise FileNotFoundError(f"Policy PDF not found: {PDF_PATH}")
+    return PyPDFLoader(str(PDF_PATH)).load()
+
+
+def _retrieve_documents(question: str) -> list:
+    try:
+        initialize_vectorstore()
+        assert _vectorstore is not None
+        return _vectorstore.similarity_search(question, k=3)
+    except Exception:
+        logger.exception("Vector retrieval failed; falling back to raw PDF context")
+        return _load_pdf_documents()
+
+
 def prepare_answer(question: str, history: list[dict] | None = None) -> dict:
     history = history or []
     profile = _profile_from_history(history)
@@ -137,18 +202,27 @@ def prepare_answer(question: str, history: list[dict] | None = None) -> dict:
             "sources": [],
         }
 
-    initialize_vectorstore()
-    assert _vectorstore is not None
-    documents = _vectorstore.similarity_search(question, k=3)
+    documents = _retrieve_documents(question)
     sources = _sources(documents)
     policy_context = "\n\n".join(document.page_content for document in documents)
     conversation_context = _conversation_context(history, question)
     prompt = f"""
 You are LoanBot, a banking loan eligibility assistant.
 
-Answer only from the policy context. Use conversation history only to resolve follow-up references such as "what about self-employed applicants"; it is not a policy source.
-If the policy context does not support an answer, say you cannot confirm it from the policy and invite a loan-eligibility question. Do not claim approval or guarantee eligibility.
-Keep the answer clear, concise, and professional.
+Grounding rules:
+- Use only facts explicitly written in the policy context.
+- Do not add advice, requirements, assumptions, banking best practices, or common lending knowledge.
+- Do not mention documents, verification, approval, rejection, or next steps unless those exact ideas appear in the policy context.
+- If the policy gives only numbers or limits, answer only with those numbers or limits.
+- If the policy context does not support an answer, say: "The policy does not specify that."
+- Use conversation history only to resolve follow-up references such as "what about self-employed applicants"; it is not a policy source.
+- Keep the answer brief and factual.
+
+Example:
+User question: What salary is required?
+Policy context: Salaried applicants must have a minimum monthly income of Rs. 30,000. Self-employed applicants must have a minimum monthly income of Rs. 50,000.
+Correct answer: Salaried applicants need a minimum monthly income of Rs. 30,000. Self-employed applicants need a minimum monthly income of Rs. 50,000.
+Incorrect answer: Applicants should provide documents to verify income before applying.
 
 Conversation history:
 {conversation_context or "No earlier messages."}
@@ -171,9 +245,14 @@ def answer_question(question: str, history: list[dict] | None = None) -> dict:
     prepared = prepare_answer(question, history)
     if prepared["kind"] == "direct":
         return {key: value for key, value in prepared.items() if key != "kind"}
-    response = get_chat_model().invoke(prepared["prompt"])
+    try:
+        response = get_chat_model().invoke(prepared["prompt"])
+        answer = response.content
+    except Exception:
+        logger.exception("Ollama invoke failed; trying fallback provider")
+        answer = _call_fallback_model(prepared["prompt"])
     return {
-        "answer": response.content,
+        "answer": answer,
         "source": prepared["source"],
         "sources": prepared["sources"],
     }
@@ -184,6 +263,12 @@ def stream_answer(prepared: dict) -> Iterator[str]:
         for token in re.findall(r"\S+\s*", prepared["answer"]):
             yield token
         return
-    for chunk in get_chat_model().stream(prepared["prompt"]):
-        if chunk.content:
-            yield chunk.content
+    try:
+        for chunk in get_chat_model().stream(prepared["prompt"]):
+            if chunk.content:
+                yield chunk.content
+    except Exception:
+        logger.exception("Ollama streaming failed; trying fallback provider")
+        answer = _call_fallback_model(prepared["prompt"])
+        for token in re.findall(r"\S+\s*", answer):
+            yield token

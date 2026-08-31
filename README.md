@@ -2,7 +2,7 @@
 
 A local AI-powered banking loan eligibility assistant built with FastAPI, Streamlit, ChromaDB, LangChain, Ollama, Docker, and Langfuse.
 
-The application answers questions about loan eligibility rules using Retrieval-Augmented Generation over a local policy PDF. It runs fully locally, keeps source citations with answers, supports a chatbot-style Streamlit interface, and can run either directly on the machine or with the FastAPI backend inside Docker.
+The application answers questions about loan eligibility rules using Retrieval-Augmented Generation over a local policy PDF. It keeps source citations with answers, supports a chatbot-style Streamlit interface, and can run locally or with both frontend and backend in Docker. The LLM model stays outside Docker and is served by Ollama on the host machine.
 
 ## Business Problem
 
@@ -20,7 +20,8 @@ Loan pre-qualification takes staff time and can produce inconsistent answers. Th
 - Source citations with document, page, and excerpt
 - Langfuse tracing wrapper that does not crash the app if tracing fails
 - Local audit logs in JSONL format
-- Docker support for the FastAPI backend
+- Docker support for both FastAPI backend and Streamlit frontend
+- Optional Groq or Hugging Face fallback for answer generation
 
 ## Architecture Flow
 
@@ -76,8 +77,13 @@ loan-eligibility-assistant/
 |-- scripts/
 |   `-- create_synthetic_pdf.py
 |-- Dockerfile
+|-- Dockerfile.frontend
+|-- docker-compose.yml
+|-- .dockerignore
+|-- .env.example
 |-- requirements.txt
 |-- requirements-docker.txt
+|-- requirements-frontend.txt
 |-- .gitignore
 |-- PROJECT_GUIDE.md
 `-- README.md
@@ -132,6 +138,13 @@ Create a `.env` file in the project root if it does not already exist:
 CHAT_MODEL=qwen3.5:2b
 EMBEDDING_MODEL=nomic-embed-text:latest
 OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_WARMUP_TIMEOUT=20
+
+FALLBACK_MODEL_PROVIDER=none
+GROQ_API_KEY=
+GROQ_MODEL=openai/gpt-oss-20b
+HF_API_KEY=
+HF_MODEL=mistralai/Mistral-7B-Instruct-v0.3
 ```
 
 Optional Langfuse variables:
@@ -208,9 +221,9 @@ Open the FastAPI docs:
 http://localhost:8000/docs
 ```
 
-## Run Backend With Docker
+## Run With Docker Compose
 
-The Docker setup runs the FastAPI backend in a container while Ollama continues running on the host machine. Ollama models are not copied into the Docker image, which keeps the image smaller.
+The Docker Compose setup runs both the FastAPI backend and Streamlit frontend in containers. Ollama still runs on the host machine. Ollama models are not copied into any Docker image, which keeps images smaller and allows model switching without rebuilding images.
 
 Start Ollama on the host:
 
@@ -218,16 +231,16 @@ Start Ollama on the host:
 ollama serve
 ```
 
-Build the backend image:
+Build and start backend plus frontend:
 
 ```powershell
-docker build -t loan-eligibility-api .
+docker compose up --build
 ```
 
-Run the backend container:
+Open the Streamlit app:
 
-```powershell
-docker run --rm -p 8000:8000 -e OLLAMA_BASE_URL=http://host.docker.internal:11434 loan-eligibility-api
+```text
+http://localhost:8501
 ```
 
 Test the backend:
@@ -236,11 +249,19 @@ Test the backend:
 Invoke-RestMethod http://localhost:8000/health
 ```
 
-Run Streamlit locally in another terminal:
+Stop the containers:
 
 ```powershell
-.\capstone\Scripts\activate
-streamlit run frontend/streamlit_app.py
+docker compose down
+```
+
+## Run Backend Only With Docker
+
+Use this if the frontend is running locally but the backend should run in Docker:
+
+```powershell
+docker build -t loan-eligibility-api .
+docker run --rm -p 8000:8000 -e OLLAMA_BASE_URL=http://host.docker.internal:11434 loan-eligibility-api
 ```
 
 ## API Examples
@@ -290,6 +311,32 @@ ollama list
 When using Qwen thinking models, keep thinking disabled in the application model setup if the installed `langchain_ollama` version supports it. The model is created in `app/rag.py` inside `get_chat_model()`.
 
 For live demos, `qwen3.5:2b` is the current selected model. If it becomes slow, first check RAM usage and test the model directly with Ollama before changing application code.
+
+## API Fallback
+
+Fallback is optional. By default it is off:
+
+```env
+FALLBACK_MODEL_PROVIDER=none
+```
+
+To use Groq fallback:
+
+```env
+FALLBACK_MODEL_PROVIDER=groq
+GROQ_API_KEY=your_key_here
+GROQ_MODEL=openai/gpt-oss-20b
+```
+
+To use Hugging Face fallback:
+
+```env
+FALLBACK_MODEL_PROVIDER=huggingface
+HF_API_KEY=your_key_here
+HF_MODEL=mistralai/Mistral-7B-Instruct-v0.3
+```
+
+Do not commit real API keys. Put real keys only in `.env`.
 
 ## Troubleshooting
 

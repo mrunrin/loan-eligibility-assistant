@@ -1,10 +1,11 @@
 import json
+import os
 import uuid
 
 import requests
 import streamlit as st
 
-API_URL = "http://localhost:8000/ask/stream"
+API_URL = os.getenv("API_URL", "http://localhost:8000/ask/stream")
 MAX_BACKEND_HISTORY = 12
 
 st.set_page_config(page_title="LoanBot - EXL Banking Assistant", layout="wide", initial_sidebar_state="collapsed")
@@ -78,4 +79,8 @@ if prompt:
                     for source in sources:
                         st.caption(f"{source['document']} - page {source['page']}")
                         st.write(source["excerpt"])
-            st.session_state.messages.append({"role": "assistant", "content": answer, "sources": sources})
+            st.session_state.messages.append({
+                "role": "assistant",
+                "content": answer,
+                "sources": sources,
+            })

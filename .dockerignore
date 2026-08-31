@@ -1,0 +1,14 @@
+.env
+.git
+.github
+capstone/
+venv/
+.venv/
+vectorstore/
+logs/
+__pycache__/
+*.pyc
+*.log
+.DS_Store
+README.md
+PROJECT_GUIDE.md
