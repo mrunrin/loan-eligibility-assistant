@@ -28,7 +28,17 @@ _vectorstore: Chroma | None = None
 _vectorstore_lock = threading.Lock()
 
 
+def is_ollama_available() -> bool:
+    try:
+        response = requests.get(f"{OLLAMA_BASE_URL}/api/tags", timeout=3)
+        return response.status_code == 200
+    except Exception:
+        return False
+
+
 def get_chat_model() -> ChatOllama:
+    if not is_ollama_available():
+        raise RuntimeError(f"Ollama is not available at {OLLAMA_BASE_URL}.")
     return ChatOllama(
         model=CHAT_MODEL,
         base_url=OLLAMA_BASE_URL,
@@ -72,7 +82,9 @@ def _call_fallback_model(prompt: str) -> str:
         return _call_groq(prompt)
     if FALLBACK_MODEL_PROVIDER in {"hf", "huggingface"} and HF_API_KEY:
         return _call_huggingface(prompt)
-    raise RuntimeError("No fallback model provider is configured.")
+    raise RuntimeError(
+        "No fallback model provider is configured. Set FALLBACK_MODEL_PROVIDER to 'groq' or 'huggingface' and provide the matching API key, or install and run Ollama."
+    )
 
 
 def initialize_vectorstore() -> None:
@@ -245,6 +257,16 @@ def answer_question(question: str, history: list[dict] | None = None) -> dict:
     prepared = prepare_answer(question, history)
     if prepared["kind"] == "direct":
         return {key: value for key, value in prepared.items() if key != "kind"}
+
+    if not is_ollama_available():
+        logger.warning("Ollama is not available; using configured fallback provider")
+        answer = _call_fallback_model(prepared["prompt"])
+        return {
+            "answer": answer,
+            "source": prepared["source"],
+            "sources": prepared["sources"],
+        }
+
     try:
         response = get_chat_model().invoke(prepared["prompt"])
         answer = response.content
@@ -263,6 +285,14 @@ def stream_answer(prepared: dict) -> Iterator[str]:
         for token in re.findall(r"\S+\s*", prepared["answer"]):
             yield token
         return
+
+    if not is_ollama_available():
+        logger.warning("Ollama is not available; using configured fallback provider")
+        answer = _call_fallback_model(prepared["prompt"])
+        for token in re.findall(r"\S+\s*", answer):
+            yield token
+        return
+
     try:
         for chunk in get_chat_model().stream(prepared["prompt"]):
             if chunk.content:

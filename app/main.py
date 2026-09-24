@@ -126,10 +126,11 @@ async def ask(request: AskRequest):
         write_audit_event(request_id=request_id, session_id=request.session_id, question=request.question, status="completed", latency_ms=latency_ms, sources=result.get("sources"))
         logger.info("ask completed request_id=%s session_id=%s latency_ms=%d", request_id, request.session_id, latency_ms)
         return result
-    except Exception:
+    except Exception as exc:
         logger.exception("ask failed request_id=%s session_id=%s", request_id, request.session_id)
         write_audit_event(request_id=request_id, session_id=request.session_id, question=request.question, status="failed", latency_ms=int((time.perf_counter() - started) * 1000))
-        return JSONResponse(status_code=503, content={"answer": "I am having trouble reaching the local loan knowledge base. Please make sure Ollama is running and try again.", "source": "service unavailable", "sources": []})
+        message = str(exc) or "I am having trouble reaching the local loan knowledge base. Please make sure Ollama is running and try again."
+        return JSONResponse(status_code=503, content={"answer": message, "source": "service unavailable", "sources": []})
 
 
 @app.post("/ask/stream")
@@ -154,9 +155,10 @@ async def ask_stream(request: AskRequest):
             _record_trace(request.question, result)
             write_audit_event(request_id=request_id, session_id=request.session_id, question=request.question, status="completed", latency_ms=int((time.perf_counter() - started) * 1000), sources=result["sources"])
             yield f"event: done\ndata: {json.dumps(result)}\n\n"
-        except Exception:
+        except Exception as exc:
             logger.exception("stream failed request_id=%s", request_id)
             write_audit_event(request_id=request_id, session_id=request.session_id, question=request.question, status="failed", latency_ms=int((time.perf_counter() - started) * 1000))
-            yield f"event: error\ndata: {json.dumps({'message': 'LoanBot could not complete that request. Please try again.'})}\n\n"
+            message = str(exc) or "LoanBot could not complete that request. Please try again."
+            yield f"event: error\ndata: {json.dumps({'message': message})}\n\n"
 
     return StreamingResponse(events(), media_type="text/event-stream", headers={"Cache-Control": "no-cache", "X-Request-ID": request_id})
