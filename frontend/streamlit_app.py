@@ -13,6 +13,12 @@ st.title("LoanBot - EXL Banking Assistant")
 st.caption("Ask me anything about loan eligibility")
 st.divider()
 
+_PROVIDER_LABELS = {
+    "local": "🖥️ Local (Ollama)",
+    "groq": "⚡ Groq",
+    "huggingface": "🤗 Hugging Face",
+}
+
 if "messages" not in st.session_state:
     st.session_state.messages = []
 if "session_id" not in st.session_state:
@@ -24,8 +30,18 @@ for message in st.session_state.messages:
         if message["role"] == "assistant" and message.get("sources"):
             with st.expander("View Sources"):
                 for source in message["sources"]:
-                    st.caption(f"{source['document']} - page {source['page']}")
+                    st.caption(f"{source['document']} — page {source['page']} · {source['section']}")
                     st.write(source["excerpt"])
+
+_model_col, _ = st.columns([1, 4])
+with _model_col:
+    model_provider = st.selectbox(
+        "Model",
+        options=list(_PROVIDER_LABELS.keys()),
+        format_func=lambda x: _PROVIDER_LABELS[x],
+        label_visibility="collapsed",
+        key="model_provider",
+    )
 
 prompt = st.chat_input("Ask about loan eligibility...")
 if prompt:
@@ -43,6 +59,7 @@ if prompt:
                 "question": prompt,
                 "history": history_for_api,
                 "session_id": st.session_state.session_id,
+                "model_provider": model_provider,
             }
             with requests.post(API_URL, json=payload, stream=True, timeout=(5, 300)) as response:
                 if response.status_code == 422:
@@ -77,7 +94,7 @@ if prompt:
             if sources:
                 with st.expander("View Sources"):
                     for source in sources:
-                        st.caption(f"{source['document']} - page {source['page']}")
+                        st.caption(f"{source['document']} — page {source['page']} · {source['section']}")
                         st.write(source["excerpt"])
             st.session_state.messages.append({
                 "role": "assistant",

@@ -74,6 +74,7 @@ class AskRequest(BaseModel):
     question: str = Field(min_length=1, max_length=MAX_MESSAGE_CHARS)
     history: list[Message] = Field(default_factory=list, max_length=MAX_HISTORY_MESSAGES)
     session_id: str | None = Field(default=None, max_length=100)
+    model_provider: str = Field(default="local")
 
     @field_validator("question")
     @classmethod
@@ -81,6 +82,13 @@ class AskRequest(BaseModel):
         if not value.strip():
             raise ValueError("Question cannot be blank")
         return value.strip()
+
+    @field_validator("model_provider")
+    @classmethod
+    def validate_provider(cls, value: str) -> str:
+        if value not in {"local", "groq", "huggingface"}:
+            raise ValueError("model_provider must be 'local', 'groq', or 'huggingface'")
+        return value
 
 
 def _history(request: AskRequest) -> list[dict]:
@@ -120,7 +128,7 @@ async def ask(request: AskRequest):
     request_id = str(uuid.uuid4())
     started = time.perf_counter()
     try:
-        result = await run_in_threadpool(answer_question, request.question, _history(request))
+        result = await run_in_threadpool(answer_question, request.question, _history(request), request.model_provider)
         _record_trace(request.question, result)
         latency_ms = int((time.perf_counter() - started) * 1000)
         write_audit_event(request_id=request_id, session_id=request.session_id, question=request.question, status="completed", latency_ms=latency_ms, sources=result.get("sources"))
@@ -138,6 +146,7 @@ async def ask_stream(request: AskRequest):
     request_id = str(uuid.uuid4())
     try:
         prepared = await run_in_threadpool(prepare_answer, request.question, _history(request))
+        provider = request.model_provider
     except Exception:
         logger.exception("stream preparation failed request_id=%s", request_id)
         return JSONResponse(status_code=503, content={"answer": "I am having trouble reaching the local loan knowledge base. Please try again.", "source": "service unavailable", "sources": []})
@@ -146,7 +155,7 @@ async def ask_stream(request: AskRequest):
         answer = ""
         started = time.perf_counter()
         try:
-            async for token in iterate_in_threadpool(stream_answer(prepared)):
+            async for token in iterate_in_threadpool(stream_answer(prepared, provider)):
                 answer += token
                 yield f"event: token\ndata: {json.dumps({'text': token})}\n\n"
                 await asyncio.sleep(0)

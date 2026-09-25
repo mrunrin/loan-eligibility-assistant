@@ -2,7 +2,7 @@
 
 A local AI-powered banking loan eligibility assistant built with FastAPI, Streamlit, ChromaDB, LangChain, Ollama, Docker, and Langfuse.
 
-The application answers questions about loan eligibility rules using Retrieval-Augmented Generation over a local policy PDF. It keeps source citations with answers, supports a chatbot-style Streamlit interface, and can run locally or with both frontend and backend in Docker. The LLM model stays outside Docker and is served by Ollama on the host machine.
+The application answers questions about loan eligibility rules using Retrieval-Augmented Generation (RAG) over local policy PDFs. It keeps source citations with answers, supports a chatbot-style Streamlit interface, and can run locally or with both frontend and backend in Docker. The LLM model stays outside Docker and is served by Ollama on the host machine.
 
 ## Business Problem
 
@@ -10,39 +10,33 @@ Loan pre-qualification takes staff time and can produce inconsistent answers. Th
 
 ## Current Features
 
-- FastAPI backend with `/ask`, `/ask/stream`, `/health`, and `/` endpoints
-- Streamlit chatbot frontend
-- Streaming answers in the UI
-- Conversation history within the same browser session
-- RAG over a local loan eligibility PDF
-- ChromaDB local vector store
-- Ollama local chat model and embedding model
-- Source citations with document, page, and excerpt
-- Langfuse tracing wrapper that does not crash the app if tracing fails
-- Local audit logs in JSONL format
-- Docker support for both FastAPI backend and Streamlit frontend
-- Optional Groq or Hugging Face fallback for answer generation
+- **FastAPI backend** with `/ask`, `/ask/stream`, `/health`, and `/` endpoints
+- **Streamlit chatbot frontend** with streaming answers and session conversation history
+- **Advanced Hybrid RAG**:
+  - **Sentence-aware Chunking**: Uses NLTK `sent_tokenize` to ensure legal clauses are not cut mid-sentence, carrying over overlapping sentences for context.
+  - **Hybrid Retrieval**: Combines Dense Retrieval (ChromaDB) and Sparse Retrieval (Custom BM25 algorithm) for maximum coverage.
+  - **Neural Reranking**: Uses `CrossEncoder('BAAI/bge-reranker-base')` to rerank and select the top 5 most semantically relevant chunks.
+- **Local Execution**: Uses Ollama for local chat models and embeddings.
+- **Source Citations**: Answers include exact excerpts, page numbers, and clause identifiers.
+- **Optional Fallback Generation**: Support for Groq or Hugging Face.
+- **Observability & Logging**: Langfuse tracing wrapper and local audit logs in JSONL format.
+- **Docker Support**: Containerized FastAPI backend and Streamlit frontend.
 
 ## Architecture Flow
 
-```text
-User
-  ->
-Streamlit Chatbot UI
-  ->
-FastAPI Backend
-  ->
-RAG Pipeline
-  ->
-ChromaDB Vector Store
-  ->
-Loan Eligibility PDF
-  ->
-Ollama LLM
-  ->
-Answer + Source Citation
-  ->
-Streamlit Chatbot UI
+```mermaid
+flowchart TD
+    A[User] -->|Asks Question| B[Streamlit Chatbot UI]
+    B -->|API Request| C[FastAPI Backend]
+    C --> D[Hybrid Retrieval]
+    D -->|Dense Search| E[ChromaDB]
+    D -->|Sparse Search| F[BM25 Index]
+    E --> G[Merged Candidates]
+    F --> G
+    G -->|Reranking| H[Cross-Encoder bge-reranker-base]
+    H -->|Top-K Context| I[LLM Generation]
+    I -->|Ollama / Groq / HF| J[Streaming Answer + Citations]
+    J --> B
 ```
 
 ## Tech Stack
@@ -52,87 +46,47 @@ Streamlit Chatbot UI
 | Frontend | Streamlit | Local chatbot UI |
 | Backend | FastAPI | API layer for chat requests |
 | RAG Framework | LangChain | PDF loading, chunking, retrieval, and LLM calls |
-| Vector Store | ChromaDB | Local semantic search over policy chunks |
+| Chunking | NLTK | Sentence-aware tokenization to preserve legal clauses |
+| Vector Store | ChromaDB | Local semantic search (Dense retrieval) |
+| Sparse Search | BM25 | Custom keyword-based exact match retrieval |
+| Reranking | Sentence-Transformers | Cross-Encoder for semantic query-document scoring |
 | LLM Runtime | Ollama | Local open-source model execution |
 | Embeddings | Ollama embeddings | Local vector embeddings for retrieval |
 | Tracing | Langfuse | Observability around API/RAG calls |
 | Audit Logs | JSONL file | Local request metadata logging |
-| Containerization | Docker | Portable backend runtime |
+| Containerization | Docker | Portable backend & frontend runtime |
 
 ## Project Structure
 
-```text
-loan-eligibility-assistant/
-|-- app/
-|   |-- main.py
-|   |-- rag.py
-|   |-- config.py
-|   |-- tracing.py
-|   |-- audit.py
-|   `-- guardrails_config.py
-|-- data/
-|   `-- loan_eligibility.pdf
-|-- frontend/
-|   `-- streamlit_app.py
-|-- scripts/
-|   `-- create_synthetic_pdf.py
-|-- Dockerfile
-|-- Dockerfile.frontend
-|-- docker-compose.yml
-|-- .dockerignore
-|-- .env.example
-|-- requirements.txt
-|-- requirements-docker.txt
-|-- requirements-frontend.txt
-|-- .gitignore
-|-- PROJECT_GUIDE.md
-`-- README.md
-```
+- `app/`: FastAPI application code
+  - `main.py`: API routing and application entrypoint
+  - `rag.py`: Core RAG logic (Chunking, BM25, Reranker, LLM calls)
+  - `config.py`: Environment configurations
+  - `tracing.py`, `audit.py`, `guardrails_config.py`: Observability and safety checks
+- `data/`: Source PDFs for vectorstore ingestion (e.g. `MBBL_Business_Loan_Agreement_New.pdf`, `Businees-Loan-for-Entitiy(Unsecured)-Agreement.pdf`)
+- `frontend/`: Streamlit UI (`streamlit_app.py`)
+- `scripts/`: Utility scripts (e.g., `create_synthetic_pdf.py`)
+- `vectorstore/`: Local persistent storage for ChromaDB and document caches
+- `logs/`: Application audit logs (`audit.jsonl`)
+- Config files: `Dockerfile`, `Dockerfile.frontend`, `docker-compose.yml`, `requirements.txt`, etc.
 
 ## Prerequisites
-
-Install these tools before running the project:
 
 - Python 3.11
 - Git
 - Ollama
-- Docker Desktop, only if running the backend with Docker
+- Docker Desktop (optional, for containerized run)
 
 ## Ollama Setup
 
-Start Ollama:
-
-```powershell
-ollama serve
-```
-
-In a separate terminal, check available models:
-
-```powershell
-ollama list
-```
-
-Pull the current chat model:
-
-```powershell
-ollama pull qwen3.5:2b
-```
-
-Pull the recommended embedding model:
-
-```powershell
-ollama pull nomic-embed-text
-```
-
-Test the chat model:
-
-```powershell
-ollama run qwen3.5:2b "Say only: model works"
-```
+1. Start Ollama: `ollama serve`
+2. Pull chat model: `ollama pull qwen3.5:2b`
+3. Pull embedding model: `ollama pull nomic-embed-text`
+4. Test: `ollama run qwen3.5:2b "Reply only: ready"`
 
 ## Environment Variables
 
-Create a `.env` file in the project root if it does not already exist:
+Create a `.env` file in the project root:
 
 ```env
 CHAT_MODEL=qwen3.5:2b
@@ -147,236 +101,44 @@ HF_API_KEY=
 HF_MODEL=mistralai/Mistral-7B-Instruct-v0.3
 ```
 
-Optional Langfuse variables:
-
-```env
-LANGFUSE_PUBLIC_KEY=your_public_key
-LANGFUSE_SECRET_KEY=your_secret_key
-LANGFUSE_HOST=https://cloud.langfuse.com
-```
-
-The app still runs if Langfuse is not configured.
-
 ## Run Locally
 
-Clone the repository:
-
-```powershell
-git clone https://github.com/mrunrin/loan-eligibility-assistant.git
-```
-
-Move into the project folder:
-
-```powershell
-cd loan-eligibility-assistant
-```
-
-Create a virtual environment:
-
-```powershell
-python -m venv capstone
-```
-
-Activate the virtual environment:
-
-```powershell
-.\capstone\Scripts\activate
-```
-
-Install dependencies:
-
-```powershell
-pip install -r requirements.txt
-```
-
-Start Ollama in one terminal:
-
-```powershell
-ollama serve
-```
-
-Start the FastAPI backend in another terminal:
-
-```powershell
-.\capstone\Scripts\activate
-uvicorn app.main:app --reload
-```
-
-Start the Streamlit frontend in another terminal:
-
-```powershell
-.\capstone\Scripts\activate
-streamlit run frontend/streamlit_app.py
-```
-
-Open the chatbot:
-
-```text
-http://localhost:8501
-```
-
-Open the FastAPI docs:
-
-```text
-http://localhost:8000/docs
-```
+1. Create and activate a virtual environment:
+   ```powershell
+   python -m venv capstone
+   .\capstone\Scripts\activate
+   ```
+2. Install dependencies:
+   ```powershell
+   pip install -r requirements.txt
+   ```
+3. Start backend:
+   ```powershell
+   uvicorn app.main:app --reload
+   ```
+4. Start frontend:
+   ```powershell
+   streamlit run frontend/streamlit_app.py
+   ```
 
 ## Run With Docker Compose
 
-The Docker Compose setup runs both the FastAPI backend and Streamlit frontend in containers. Ollama still runs on the host machine. Ollama models are not copied into any Docker image, which keeps images smaller and allows model switching without rebuilding images.
-
-Start Ollama on the host:
-
 ```powershell
+# Start Ollama on the host machine first
 ollama serve
-```
 
-Build and start backend plus frontend:
-
-```powershell
+# Build and start the app
 docker compose up --build
 ```
 
-Open the Streamlit app:
+> [!NOTE]
+> The application downloads the `BAAI/bge-reranker-base` model (~270MB) and NLTK data on first startup. To avoid re-downloading these every time the container restarts, ensure your `docker-compose.yml` mounts the HuggingFace and NLTK cache directories from your host machine (e.g., `~/.cache/huggingface:/root/.cache/huggingface`).
 
-```text
-http://localhost:8501
-```
+## Model Switching & API Fallback
 
-Test the backend:
-
-```powershell
-Invoke-RestMethod http://localhost:8000/health
-```
-
-Stop the containers:
-
-```powershell
-docker compose down
-```
-
-## Run Backend Only With Docker
-
-Use this if the frontend is running locally but the backend should run in Docker:
-
-```powershell
-docker build -t loan-eligibility-api .
-docker run --rm -p 8000:8000 -e OLLAMA_BASE_URL=http://host.docker.internal:11434 loan-eligibility-api
-```
-
-## API Examples
-
-Health check:
-
-```powershell
-Invoke-RestMethod http://localhost:8000/health
-```
-
-Ask a normal JSON question:
-
-```powershell
-Invoke-RestMethod -Uri "http://localhost:8000/ask" -Method Post -ContentType "application/json" -Body '{"question":"What credit score is required?","history":[]}'
-```
-
-Expected response shape:
-
-```json
-{
-  "answer": "The minimum credit score required for loan eligibility is 700.",
-  "source": "loan_eligibility.pdf, page 1",
-  "sources": [
-    {
-      "document": "loan_eligibility.pdf",
-      "page": 1,
-      "excerpt": "..."
-    }
-  ]
-}
-```
-
-## Model Switching
-
-Use `.env` to change the chat model:
-
-```env
-CHAT_MODEL=qwen3.5:2b
-```
-
-The model name must exactly match a tag shown by:
-
-```powershell
-ollama list
-```
-
-When using Qwen thinking models, keep thinking disabled in the application model setup if the installed `langchain_ollama` version supports it. The model is created in `app/rag.py` inside `get_chat_model()`.
-
-For live demos, `qwen3.5:2b` is the current selected model. If it becomes slow, first check RAM usage and test the model directly with Ollama before changing application code.
-
-## API Fallback
-
-Fallback is optional. By default it is off:
-
-```env
-FALLBACK_MODEL_PROVIDER=none
-```
-
-To use Groq fallback:
-
-```env
-FALLBACK_MODEL_PROVIDER=groq
-GROQ_API_KEY=your_key_here
-GROQ_MODEL=openai/gpt-oss-20b
-```
-
-To use Hugging Face fallback:
-
-```env
-FALLBACK_MODEL_PROVIDER=huggingface
-HF_API_KEY=your_key_here
-HF_MODEL=mistralai/Mistral-7B-Instruct-v0.3
-```
-
-Do not commit real API keys. Put real keys only in `.env`.
+Update `CHAT_MODEL` in `.env` to switch Ollama models. To use a hosted API fallback like Groq or Hugging Face, change `FALLBACK_MODEL_PROVIDER` and provide the respective `API_KEY`.
 
 ## Troubleshooting
 
-If Streamlit says the backend is unavailable, check FastAPI:
-
-```powershell
-Invoke-RestMethod http://localhost:8000/health
-```
-
-If the backend is running but responses are slow, test Ollama directly:
-
-```powershell
-ollama run qwen3.5:2b "Reply only: ready"
-```
-
-If using Docker and Ollama cannot connect, make sure the container uses:
-
-```powershell
--e OLLAMA_BASE_URL=http://host.docker.internal:11434
-```
-
-If the vector store behaves strangely, stop the backend, delete the local `vectorstore/` folder, and restart the backend so it rebuilds from the PDF.
-
-## Git Notes
-
-Do not commit local runtime folders or secrets:
-
-```text
-.env
-capstone/
-vectorstore/
-logs/
-__pycache__/
-```
-
-Normal commit flow:
-
-```powershell
-git status
-git add .
-git commit -m "Update documentation"
-git push
-```
+- **Vector store issues**: If the vector store behaves strangely, stop the backend, delete the local `vectorstore/` folder, and restart the backend so it rebuilds from the PDF.
+- **Ollama connectivity**: If using Docker, ensure `OLLAMA_BASE_URL=http://host.docker.internal:11434` is set.
