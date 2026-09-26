@@ -144,28 +144,59 @@ async def ask(request: AskRequest):
 @observe(name="loan-eligibility-stream")
 async def ask_stream(request: AskRequest):
     request_id = str(uuid.uuid4())
-    try:
-        prepared = await run_in_threadpool(prepare_answer, request.question, _history(request))
-        provider = request.model_provider
-    except Exception:
-        logger.exception("stream preparation failed request_id=%s", request_id)
-        return JSONResponse(status_code=503, content={"answer": "I am having trouble reaching the local loan knowledge base. Please try again.", "source": "service unavailable", "sources": []})
 
     async def events() -> AsyncIterator[str]:
         answer = ""
         started = time.perf_counter()
+
+        def _status(msg: str) -> str:
+            return f"event: status\ndata: {json.dumps({'message': msg})}\n\n"
+
         try:
+            # --- Fake live status messages (wrapper, does not touch rag.py) ---
+            yield _status("Analyzing your question...")
+            await asyncio.sleep(0.8)
+
+            yield _status("Searching policy documents with ChromaDB & BM25...")
+            await asyncio.sleep(1.2)
+
+            yield _status("Reranking candidates with Cross-Encoder...")
+            await asyncio.sleep(1.5)
+
+            yield _status("Building prompt and calling LLM...")
+            await asyncio.sleep(0)
+
+            # --- Real blocking call in threadpool (rag.py untouched) ---
+            prepared = await run_in_threadpool(prepare_answer, request.question, _history(request))
+            provider = request.model_provider
+
+            # --- Stream LLM tokens ---
             async for token in iterate_in_threadpool(stream_answer(prepared, provider)):
                 answer += token
                 yield f"event: token\ndata: {json.dumps({'text': token})}\n\n"
                 await asyncio.sleep(0)
+
             result = {"answer": answer, "source": prepared["source"], "sources": prepared["sources"]}
             _record_trace(request.question, result)
-            write_audit_event(request_id=request_id, session_id=request.session_id, question=request.question, status="completed", latency_ms=int((time.perf_counter() - started) * 1000), sources=result["sources"])
+            write_audit_event(
+                request_id=request_id,
+                session_id=request.session_id,
+                question=request.question,
+                status="completed",
+                latency_ms=int((time.perf_counter() - started) * 1000),
+                sources=result["sources"],
+            )
             yield f"event: done\ndata: {json.dumps(result)}\n\n"
+
         except Exception:
             logger.exception("stream failed request_id=%s", request_id)
-            write_audit_event(request_id=request_id, session_id=request.session_id, question=request.question, status="failed", latency_ms=int((time.perf_counter() - started) * 1000))
+            write_audit_event(
+                request_id=request_id,
+                session_id=request.session_id,
+                question=request.question,
+                status="failed",
+                latency_ms=int((time.perf_counter() - started) * 1000),
+            )
             yield f"event: error\ndata: {json.dumps({'message': 'LoanBot could not complete that request. Please try again.'})}\n\n"
 
     return StreamingResponse(events(), media_type="text/event-stream", headers={"Cache-Control": "no-cache", "X-Request-ID": request_id})

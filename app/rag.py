@@ -152,16 +152,18 @@ def _call_groq(prompt: str) -> str:
 
 def _call_huggingface(prompt: str) -> str:
     response = requests.post(
-        f"https://api-inference.huggingface.co/models/{HF_MODEL}",
-        headers={"Authorization": f"Bearer {HF_API_KEY}"},
-        json={"inputs": prompt, "parameters": {"max_new_tokens": 350}},
+        "https://router.huggingface.co/v1/chat/completions",
+        headers={"Authorization": f"Bearer {HF_API_KEY}", "Content-Type": "application/json"},
+        json={
+            "model": HF_MODEL,
+            "messages": [{"role": "user", "content": prompt}],
+            "temperature": 0,
+            "max_tokens": 350,
+        },
         timeout=120,
     )
     response.raise_for_status()
-    payload = response.json()
-    if isinstance(payload, list) and payload:
-        return payload[0].get("generated_text", "").replace(prompt, "").strip()
-    return str(payload)
+    return response.json()["choices"][0]["message"]["content"]
 
 
 def _stream_groq(prompt: str) -> Iterator[str]:
@@ -745,6 +747,8 @@ Grounding rules:
 - Some passages are blank template fields (e.g. "Rate of interest: ___" or "% p.a." with nothing before it). If another passage gives the actual value, use that value — do not let blank template fields override a passage that contains a real number.
 - Use conversation history only to resolve follow-up references such as "what about self-employed applicants"; it is not a policy source.
 - Keep the answer brief and factual.
+- IMPORTANT: If the user's question mentions a specific agreement name (e.g. "Utkarsh", "MBBL", "Jana"), ignore that name. Answer using whatever policy context passages are provided below — they ARE the relevant agreements.
+- IMPORTANT: If ANY policy passage below directly addresses the user's question, you MUST use it to answer. Do NOT say "The policy does not specify that" when the answer is clearly present in the context.
 
 Example 1 — answer IS in the context, answer it directly:
 User question: What salary is required?
@@ -762,6 +766,12 @@ Example 3 — answer IS a duration buried in a clause, still answer it:
 User question: How long can a borrower travel abroad for a short visit?
 Policy context: the Borrower/s may leave India for the purpose of short visits/trips not exceeding a period of 60 (Sixty) days at any given point of time
 Correct answer: A borrower may leave India for short visits not exceeding 60 days at any one time.
+Wrong answer: The policy does not specify that.
+
+Example 4 — answer IS present even when user mentions a specific agreement name:
+User question: Can a borrower dispute EMI calculation and withhold EMI under the Utkarsh agreement?
+Policy context: 3.9. Any dispute being raised about the computation of any EMI will not entitle the Borrower/s to withhold payment of EMI or any portion thereof.
+Correct answer: No. Under the agreement, raising a dispute about EMI computation does not entitle the borrower to withhold payment of EMI or any portion thereof. The obligation to pay EMI is absolute and unconditional.
 Wrong answer: The policy does not specify that.
 
 Conversation history:
