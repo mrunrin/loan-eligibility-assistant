@@ -17,7 +17,6 @@ from app.audit import write_audit_event
 from app.config import (
     CHAT_MODEL,
     EMBEDDING_MODEL,
-    FALLBACK_MODEL_PROVIDER,
     MAX_HISTORY_MESSAGES,
     MAX_MESSAGE_CHARS,
     OLLAMA_WARMUP_TIMEOUT,
@@ -116,7 +115,7 @@ def health():
         "status": "ok" if vectorstore_ready and ollama_ready else "degraded",
         "model": CHAT_MODEL,
         "embedding_model": EMBEDDING_MODEL,
-        "fallback_provider": FALLBACK_MODEL_PROVIDER,
+        "providers": ["local", "groq", "huggingface"],
         "vectorstore_ready": vectorstore_ready,
         "ollama_ready": ollama_ready,
     }

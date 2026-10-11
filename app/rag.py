@@ -29,7 +29,6 @@ from app.config import (
     CHAT_MODEL,
     DATA_DIR,
     EMBEDDING_MODEL,
-    FALLBACK_MODEL_PROVIDER,
     GROQ_API_KEY,
     GROQ_MODEL,
     HF_API_KEY,
@@ -198,15 +197,6 @@ def _stream_groq(prompt: str) -> Iterator[str]:
                 yield content
         except (json.JSONDecodeError, KeyError):
             continue
-
-
-def _call_fallback_model(prompt: str) -> str:
-    if FALLBACK_MODEL_PROVIDER == "groq" and GROQ_API_KEY:
-        return _call_groq(prompt)
-    if FALLBACK_MODEL_PROVIDER in {"hf", "huggingface"} and HF_API_KEY:
-        return _call_huggingface(prompt)
-    raise RuntimeError("No fallback model provider is configured.")
-
 
 def _pdf_paths() -> list[Path]:
     if PDF_PATH is not None:
@@ -815,8 +805,13 @@ def answer_question(question: str, history: list[dict] | None = None, provider: 
     prompt = prepared["prompt"]
     ready, reason = _provider_ready(provider)
     if not ready:
-        logger.warning("Provider '%s' not ready: %s. Falling back to local.", provider, reason)
-        provider = "local"
+        logger.warning("Provider '%s' not ready: %s", provider, reason)
+        return {
+            "answer": reason,
+            "source": "provider unavailable",
+            "sources": [],
+            "answered_provider": "unavailable",
+        }
     try:
         if provider == "groq":
             answer = _call_groq(prompt)
@@ -825,14 +820,9 @@ def answer_question(question: str, history: list[dict] | None = None, provider: 
         else:
             answer = get_chat_model().invoke(prompt).content
     except Exception:
-        logger.exception("Provider '%s' failed; falling back to local Ollama", provider)
-        provider = "local"
-        try:
-            answer = get_chat_model().invoke(prompt).content
-        except Exception:
-            logger.exception("Local Ollama also failed")
-            answer = "Sorry, all providers are currently unavailable. Please check your configuration."
-            provider = "unavailable"
+        logger.exception("Selected provider '%s' failed", provider)
+        answer = f"Selected provider '{provider}' is unavailable. Please check its configuration and try again."
+        provider = "unavailable"
     return {
         "answer": answer,
         "source": prepared["source"],
@@ -858,8 +848,9 @@ def stream_answer(prepared: dict, provider: str = "local") -> Iterator[str]:
     prompt = prepared["prompt"]
     ready, reason = _provider_ready(provider)
     if not ready:
-        yield f"⚠️ {reason} Falling back to local Ollama.\n\n"
-        provider = "local"
+        prepared["answered_provider"] = "unavailable"
+        yield reason
+        return
     prepared["answered_provider"] = provider
     try:
         if provider == "groq":
@@ -873,13 +864,6 @@ def stream_answer(prepared: dict, provider: str = "local") -> Iterator[str]:
                 if chunk.content:
                     yield chunk.content
     except Exception:
-        logger.exception("Provider '%s' failed; falling back to local Ollama", provider)
-        yield "\n\n⚠️ Provider failed. Falling back to local Ollama.\n\n"
-        prepared["answered_provider"] = "local"
-        try:
-            for chunk in get_chat_model().stream(prompt):
-                if chunk.content:
-                    yield chunk.content
-        except Exception:
-            prepared["answered_provider"] = "unavailable"
-            yield "\n\n[All providers failed. Please check your configuration.]"
+        logger.exception("Selected provider '%s' failed", provider)
+        prepared["answered_provider"] = "unavailable"
+        yield f"Selected provider '{provider}' is unavailable. Please check its configuration and try again."

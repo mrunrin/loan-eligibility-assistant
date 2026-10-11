@@ -220,14 +220,25 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
+      - name: Install Ollama
+        run: curl -fsSL https://ollama.com/install.sh | sh
+
+      - name: Start Ollama and pull models
+        run: |
+          ollama serve > /tmp/ollama.log 2>&1 &
+          sleep 5
+          ollama pull qwen3.5:2b
+          ollama pull nomic-embed-text
+
       - name: Start backend
         env:
-          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
-          GROQ_MODEL: "llama3-8b-8192"
-          FALLBACK_MODEL_PROVIDER: "groq"
+          CHAT_MODEL: qwen3.5:2b
+          EMBEDDING_MODEL: nomic-embed-text
+          OLLAMA_BASE_URL: http://localhost:11434
+          FORCE_REBUILD_VECTORSTORE: "true"
         run: |
           uvicorn app.main:app --host 0.0.0.0 --port 8000 &
-          sleep 15
+          sleep 45
 
       - name: Run Promptfoo evaluation
         run: npx promptfoo@latest eval --no-cache
@@ -356,7 +367,6 @@ docker-compose up
    | HF_API_KEY | (empty) | HuggingFace API key |
    | HF_MODEL | mistralai/Mistral-7B-Instruct-v0.3 | Model on HuggingFace |
    | FORCE_REBUILD_VECTORSTORE | false | Set to true to re-ingest PDFs |
-   | FALLBACK_MODEL_PROVIDER | none | Auto-fallback: groq, hf, or none |
    ```
 8. **Sample Questions** — 5 example questions with expected behavior
 9. **Evaluation** — How to run `promptfoo eval`

@@ -6,7 +6,7 @@ Last reviewed: 2026-10-10
 
 This checklist is the project's single planning and continuation document. It combines the completion plan with the current architecture, decisions, and the next work to resume.
 
-**Current demo flow:** Streamlit chat -> FastAPI (`/ask`, `/ask/stream`, `/health`) -> Hybrid Retrieval (ChromaDB + Custom BM25) -> Cross-Encoder Reranking (`BAAI/bge-reranker-base`) -> Prompt Injection -> Ollama (`qwen3.5:2b`) or configured Groq/Hugging Face fallback -> answer and citations -> Langfuse trace and JSONL audit record.
+**Current demo flow:** Streamlit chat -> FastAPI (`/ask`, `/ask/stream`, `/health`) -> Hybrid Retrieval (ChromaDB + Custom BM25) -> Cross-Encoder Reranking (`BAAI/bge-reranker-base`) -> Prompt Injection -> selected provider (`local`, `groq`, or `huggingface`) -> answer and citations -> Langfuse trace and JSONL audit record.
 
 **Current data:** `data/` contains `MBBL_Business_Loan_Agreement_New.pdf` and `Businees-Loan-for-Entitiy(Unsecured)-Agreement.pdf`. These are business-loan agreement PDFs; the former synthetic `loan_eligibility.pdf` is no longer in the working tree. Treat claims as limited to these documents and do not describe the data as a complete eligibility policy.
 
@@ -14,7 +14,7 @@ This checklist is the project's single planning and continuation document. It co
 
 **Current next step:** Run the manual evaluation set in `eval/test_questions.md`, then run Promptfoo locally with the backend running. Letter-based sub-clauses in the Jana document (e.g., `p)`, `q)`, `r)`) remain a known citation-label limitation, not a blocker for the capstone demo.
 
-**Architecture decisions to retain:** keep Ollama outside Docker so model weights do not inflate the app images; Docker Compose runs frontend and backend. ChromaDB remains the local vector store for dense retrieval, supplemented by the local BM25 index. The Cross-Encoder reranker runs locally via `sentence-transformers` and caches models on the host machine. Hosted generation fallback is optional and selected by environment configuration.
+**Architecture decisions to retain:** keep Ollama outside Docker so model weights do not inflate the app images; Docker Compose runs frontend and backend. ChromaDB remains the local vector store for dense retrieval, supplemented by the local BM25 index. The Cross-Encoder reranker runs locally via `sentence-transformers` and caches models on the host machine. Hosted generation providers are optional and selected explicitly in the UI.
 
 ## Capstone Goal
 
@@ -32,7 +32,7 @@ Demonstrate that a streaming RAG chatbot can answer questions about a loan eligi
 - [x] Streamlit chat UI with streamed answers and browser-session conversation history.
 - [x] ChromaDB dense retrieval over two business-loan agreement PDFs in `data/`.
 - [x] Parent-section and child-text chunking exists; clause-aware child splitting is not complete.
-- [x] Ollama model and embeddings configured; optional Groq/Hugging Face generation fallback exists.
+- [x] Ollama model and embeddings configured; optional Groq/Hugging Face provider selection exists.
 - [x] Dockerfiles and Docker Compose for the frontend and backend; Ollama stays outside the containers.
 - [x] Langfuse integration and JSONL audit logging are present.
 - [ ] Automated tests are not present yet.
@@ -119,7 +119,7 @@ Demonstrate that a streaming RAG chatbot can answer questions about a loan eligi
 - [ ] Measure time to first token and total latency on the demo machine; state the machine/model conditions with the result.
 - [ ] Rehearse one in-policy answer, a follow-up, a missing-policy question, source inspection, and a deliberate regression blocked by CI.
 - [ ] Prepare a short architecture explanation: Streamlit → FastAPI → retrieval in ChromaDB → policy PDF evidence → Ollama generation → answer, citation, trace, and audit event.
-- [ ] Prepare a brief explanation of why Ollama is outside Docker and what the optional hosted fallback changes.
+- [ ] Prepare a brief explanation of why Ollama is outside Docker and what optional hosted provider selection changes.
 - [ ] List known limitations honestly: synthetic policy, small evaluation set, local/single-instance vector store, and no real lending decisions.
 
 **Done when:** the demo runs end to end and the team can show measured results for all four success measures.

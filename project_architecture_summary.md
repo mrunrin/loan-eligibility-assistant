@@ -46,7 +46,7 @@ The core intelligence of LoanBot relies on a highly sophisticated Hybrid Retriev
 ## 4. Generative AI Models (LLM Layer)
 - **Primary Processing:** Fully local, offline, and private text generation via **Ollama** (e.g., `qwen3.5:2b`).
 - **Cloud Failover Routing:** Built-in ability to instantly route inference requests to the **Groq** cloud or **Hugging Face** APIs for lightning-fast speeds or heavier reasoning models (e.g., `llama3-8b-8192`), based on the frontend dropdown selection.
-- **Fault Tolerance:** If a cloud provider fails or an API key is missing, the backend seamlessly prints a warning and falls back to local Ollama.
+- **Provider Behavior:** The frontend sends the selected provider for each request. If that provider is unavailable, the backend returns a clear provider error instead of silently switching to another model.
 
 ---
 

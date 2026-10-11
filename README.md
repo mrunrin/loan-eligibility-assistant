@@ -18,7 +18,7 @@ Loan pre-qualification takes staff time and can produce inconsistent answers. Th
   - **Neural Reranking**: Uses `CrossEncoder('BAAI/bge-reranker-base')` to rerank and select the top 5 most semantically relevant chunks.
 - **Local Execution**: Uses Ollama for local chat models and embeddings.
 - **Source Citations**: Answers include exact excerpts, page numbers, and clause identifiers.
-- **Optional Fallback Generation**: Support for Groq or Hugging Face.
+- **Explicit Provider Selection**: The UI can send a request to local Ollama, Groq, or Hugging Face. The app does not silently switch providers.
 - **Observability & Logging**: Langfuse tracing wrapper and local audit logs in JSONL format.
 - **Docker Support**: Containerized FastAPI backend and Streamlit frontend.
 
@@ -62,10 +62,9 @@ flowchart TD
   - `main.py`: API routing and application entrypoint
   - `rag.py`: Core RAG logic (Chunking, BM25, Reranker, LLM calls)
   - `config.py`: Environment configurations
-  - `tracing.py`, `audit.py`, `guardrails_config.py`: Observability and safety checks
+  - `tracing.py`, `audit.py`: Langfuse integration and local audit logging
 - `data/`: Source PDFs for vectorstore ingestion (e.g. `MBBL_Business_Loan_Agreement_New.pdf`, `Businees-Loan-for-Entitiy(Unsecured)-Agreement.pdf`)
 - `frontend/`: Streamlit UI (`streamlit_app.py`)
-- `scripts/`: Utility scripts (e.g., `create_synthetic_pdf.py`)
 - `vectorstore/`: Local persistent storage for ChromaDB and document caches
 - `logs/`: Application audit logs (`audit.jsonl`)
 - Config files: `Dockerfile`, `Dockerfile.frontend`, `docker-compose.yml`, `requirements.txt`, etc.
@@ -94,12 +93,13 @@ EMBEDDING_MODEL=nomic-embed-text:latest
 OLLAMA_BASE_URL=http://localhost:11434
 OLLAMA_WARMUP_TIMEOUT=20
 
-FALLBACK_MODEL_PROVIDER=none
 GROQ_API_KEY=
 GROQ_MODEL=openai/gpt-oss-20b
 HF_API_KEY=
 HF_MODEL=mistralai/Mistral-7B-Instruct-v0.3
 ```
+
+Hosted provider keys are optional. If the user selects Groq or Hugging Face in the UI and the key is missing or invalid, the app shows a clear provider error. It does not automatically fall back to another provider.
 
 ## Run Locally
 
@@ -149,11 +149,217 @@ $env:FORCE_REBUILD_VECTORSTORE="true"
 uvicorn app.main:app --reload
 ```
 
-For Docker, add `FORCE_REBUILD_VECTORSTORE=true` temporarily to the backend environment in `docker-compose.yml`, then remove it after the rebuild. Docker does not show the local interactive rebuild prompt, so this environment variable is the correct rebuild control for containers.
+For Docker, set `FORCE_REBUILD_VECTORSTORE: "true"` temporarily in the backend environment in `docker-compose.yml`, run the app once, then set it back to `"false"`. Docker does not show the local interactive rebuild prompt, so this environment variable is the correct rebuild control for containers.
 
-## Model Switching & API Fallback
+## Model And Provider Selection
 
-Update `CHAT_MODEL` in `.env` to switch Ollama models. To use a hosted API fallback like Groq or Hugging Face, change `FALLBACK_MODEL_PROVIDER` and provide the respective `API_KEY`.
+Update `CHAT_MODEL` in `.env` to switch the local Ollama model. The Streamlit UI also exposes provider selection for each request:
+
+- `local`: uses Ollama on the host machine
+- `groq`: uses the configured Groq API key/model
+- `huggingface`: uses the configured Hugging Face API key/model
+
+The selected provider is the provider used for that request. There is no hidden provider fallback.
+
+## Command Reference
+
+This section is for anyone cloning the repository. Run these commands from the project root, not from a machine-specific path.
+
+### Clone And Enter The Project
+
+```powershell
+git clone https://github.com/<username>/<repository>.git
+cd <repository>
+```
+
+### Local Setup
+
+```powershell
+python -m venv capstone
+.\capstone\Scripts\activate
+pip install -r requirements.txt
+copy .env.example .env
+```
+
+After copying `.env.example`, update `.env` with local values and optional API keys.
+
+### Ollama Setup
+
+Run this in a separate terminal:
+
+```powershell
+ollama serve
+```
+
+In another terminal, pull and test the models:
+
+```powershell
+ollama list
+ollama pull qwen3.5:2b
+ollama pull nomic-embed-text
+ollama run qwen3.5:2b "Reply only: ready"
+```
+
+### Start Backend Locally
+
+```powershell
+.\capstone\Scripts\activate
+uvicorn app.main:app --reload
+```
+
+Backend URLs:
+
+```text
+http://localhost:8000/
+http://localhost:8000/health
+http://localhost:8000/docs
+```
+
+### Start Frontend Locally
+
+Run this in a second terminal:
+
+```powershell
+.\capstone\Scripts\activate
+streamlit run frontend/streamlit_app.py
+```
+
+Frontend URL:
+
+```text
+http://localhost:8501
+```
+
+### Test Backend Manually
+
+```powershell
+Invoke-RestMethod -Uri "http://localhost:8000/health"
+```
+
+```powershell
+Invoke-RestMethod -Uri "http://localhost:8000/ask" -Method Post -ContentType "application/json" -Body '{"question":"What is foreclosure?","history":[],"session_id":"manual-test","model_provider":"local"}'
+```
+
+### Docker Commands
+
+Ollama still runs outside Docker, so start it first:
+
+```powershell
+ollama serve
+```
+
+Build and start both containers:
+
+```powershell
+docker compose up --build
+```
+
+Start both containers in the background:
+
+```powershell
+docker compose up --build -d
+```
+
+Open the app:
+
+```text
+http://localhost:8501
+```
+
+Check backend health:
+
+```text
+http://localhost:8000/health
+```
+
+View containers:
+
+```powershell
+docker ps
+```
+
+View logs:
+
+```powershell
+docker compose logs -f backend
+docker compose logs -f frontend
+```
+
+Stop containers:
+
+```powershell
+docker compose down
+```
+
+Stop containers and delete Docker volumes, including the persisted vectorstore:
+
+```powershell
+docker compose down -v
+```
+
+### Rebuild Vectorstore
+
+Local one-time rebuild:
+
+```powershell
+$env:FORCE_REBUILD_VECTORSTORE="true"
+uvicorn app.main:app --reload
+```
+
+After the rebuild, close the terminal or reset the variable:
+
+```powershell
+Remove-Item Env:\FORCE_REBUILD_VECTORSTORE
+```
+
+Docker one-time rebuild:
+
+1. Temporarily set this in `docker-compose.yml`:
+
+```yaml
+FORCE_REBUILD_VECTORSTORE: "true"
+```
+
+2. Run:
+
+```powershell
+docker compose up --build
+```
+
+3. Set it back:
+
+```yaml
+FORCE_REBUILD_VECTORSTORE: "false"
+```
+
+### Evaluation Commands
+
+Run Promptfoo locally after the backend is already running:
+
+```powershell
+npx promptfoo@latest eval --no-cache
+```
+
+The GitHub Actions workflow also runs Promptfoo automatically on push and pull request to `main`. It installs Ollama, pulls the local chat and embedding models, starts the FastAPI backend, then runs the eval.
+
+### Git Commands
+
+```powershell
+git status
+git diff
+git add .
+git commit -m "Update LoanBot project"
+git push
+git pull
+```
+
+If setting up a new remote repository:
+
+```powershell
+git remote add origin https://github.com/<username>/<repository>.git
+git branch -M main
+git push -u origin main
+```
 
 ## Sample Questions
 

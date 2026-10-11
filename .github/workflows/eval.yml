@@ -20,6 +20,16 @@ jobs:
       - name: Install Python dependencies
         run: pip install -r requirements.txt
 
+      - name: Install Ollama
+        run: curl -fsSL https://ollama.com/install.sh | sh
+
+      - name: Start Ollama and pull models
+        run: |
+          ollama serve > /tmp/ollama.log 2>&1 &
+          sleep 5
+          ollama pull qwen3.5:2b
+          ollama pull nomic-embed-text
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
@@ -27,12 +37,13 @@ jobs:
 
       - name: Start backend
         env:
-          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
-          GROQ_MODEL: "llama3-8b-8192"
-          FALLBACK_MODEL_PROVIDER: "groq"
+          CHAT_MODEL: qwen3.5:2b
+          EMBEDDING_MODEL: nomic-embed-text
+          OLLAMA_BASE_URL: http://localhost:11434
+          FORCE_REBUILD_VECTORSTORE: "true"
         run: |
           uvicorn app.main:app --host 0.0.0.0 --port 8000 &
-          sleep 20
+          sleep 45
 
       - name: Run Promptfoo evaluation
         run: npx promptfoo@latest eval --no-cache
