@@ -50,6 +50,7 @@ DENSE_CANDIDATE_K = 20   # widened: more candidates for cross-encoder to pick fr
 BM25_CANDIDATE_K = 20    # widened: more candidates for cross-encoder to pick from
 FINAL_EVIDENCE_K = 5
 RRF_K = 60
+RERANKER_ENABLED = os.getenv("RERANKER_ENABLED", "true").lower() in {"1", "true", "yes"}
 RERANKER_MODEL = "BAAI/bge-reranker-base"
 _reranker: CrossEncoder | None = None
 CHUNK_MAX_CHARS = 800       # target max chars per sentence-level chunk
@@ -458,7 +459,7 @@ def _candidate_id(document: Document) -> str:
 def _get_reranker():
     """Lazy-load the cross-encoder model once per process."""
     global _reranker
-    if not _CROSS_ENCODER_AVAILABLE:
+    if not RERANKER_ENABLED or not _CROSS_ENCODER_AVAILABLE:
         return None
     if _reranker is None:
         logger.info("Loading cross-encoder reranker: %s", RERANKER_MODEL)

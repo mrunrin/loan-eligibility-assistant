@@ -1,10 +1,16 @@
 FROM python:3.11-slim
 
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
 WORKDIR /app
 
 COPY requirements-docker.txt .
 
-RUN pip install --no-cache-dir -r requirements-docker.txt
+RUN pip install --no-cache-dir --default-timeout=300 --retries=10 --index-url https://download.pytorch.org/whl/cpu torch
+RUN pip install --no-cache-dir --default-timeout=300 --retries=10 -r requirements-docker.txt
 RUN python -c "import nltk; nltk.download('punkt_tab')"
 
 COPY app ./app
