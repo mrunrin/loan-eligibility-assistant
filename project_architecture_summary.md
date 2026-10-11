@@ -53,3 +53,31 @@ The core intelligence of LoanBot relies on a highly sophisticated Hybrid Retriev
 ## 5. Deployment & State Management
 - **Containerization:** Managed via `docker-compose.yml`, including volume mounts for HuggingFace model caching and ChromaDB persistence to prevent image bloat.
 - **Short-term Memory:** Tracks conversational context (up to the last 12 messages) allowing the AI to smoothly handle follow-up pronouns and user profiling (e.g., remembering the user's name).
+
+---
+
+## 6. File-By-File Flow
+
+- `app/rag.py` — Core RAG pipeline: PDF loading, NLTK sentence chunking, ChromaDB dense retrieval, BM25 keyword retrieval, CrossEncoder reranking, prompt assembly, and multi-provider LLM calls.
+- `app/main.py` — FastAPI server: `/ask`, `/ask/stream`, `/health`, SSE streaming, short status messages, audit logging, and Langfuse trace updates.
+- `app/config.py` — Loads environment variables and defaults for models, paths, history limits, Ollama, Groq, Hugging Face, vector store, and audit logs.
+- `app/audit.py` — Writes local JSONL audit events with request ID, session ID, hashed question, status, latency, source pages, and provider information.
+- `app/tracing.py` — Creates the Langfuse client. If Langfuse is not configured, the app still runs.
+- `frontend/streamlit_app.py` — Streamlit chatbot UI with model selector, streaming response consumer, chat history, and source display.
+- `data/` — Contains the two business-loan agreement PDFs used for retrieval.
+- `vectorstore/` — Local persistent ChromaDB storage plus `documents_cache.json`; ignored by Git.
+- `logs/` — Local audit log output; ignored by Git.
+- `eval/` — Manual test questions and Promptfoo test cases for the capstone quality gate.
+- `promptfooconfig.yaml` — Promptfoo configuration for calling the FastAPI `/ask` endpoint.
+- `.github/workflows/eval.yml` — GitHub Actions workflow for the RAG quality gate.
+
+---
+
+## 7. Remaining Demo Proof
+
+The build is feature-complete enough for the capstone. The remaining work is proof and rehearsal:
+
+- Run the app locally and ask the 10 questions in `eval/test_questions.md`.
+- Run `npx promptfoo@latest eval` while the backend is running.
+- Confirm Docker builds if Docker will be shown in the demo.
+- Capture 2-3 screenshots: chat answer, source expander, audit log or Langfuse trace.

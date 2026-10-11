@@ -5,6 +5,7 @@ WORKDIR /app
 COPY requirements-docker.txt .
 
 RUN pip install --no-cache-dir -r requirements-docker.txt
+RUN python -c "import nltk; nltk.download('punkt_tab')"
 
 COPY app ./app
 COPY data ./data

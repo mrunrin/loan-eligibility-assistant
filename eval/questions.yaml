@@ -1,0 +1,62 @@
+tests:
+  - description: "EMI dispute withholding"
+    vars:
+      question: "Can a borrower dispute EMI calculation and withhold EMI?"
+    assert:
+      - type: contains
+        value: "absolute and unconditional"
+      - type: not-contains
+        value: "does not specify"
+
+  - description: "EMI due date"
+    vars:
+      question: "On what date is the EMI due each month?"
+    assert:
+      - type: contains
+        value: "11th"
+      - type: not-contains
+        value: "does not specify"
+
+  - description: "Stop payment Event of Default"
+    vars:
+      question: "What happens if a borrower stops payment on a cheque provided for the loan?"
+    assert:
+      - type: contains
+        value: "Event of Default"
+
+  - description: "Loan assignment to third party"
+    vars:
+      question: "Can the bank transfer the loan to a third party?"
+    assert:
+      - type: icontains
+        value: "transfer"
+      - type: icontains
+        value: "assign"
+
+  - description: "Short visit abroad duration"
+    vars:
+      question: "How long can a borrower travel abroad for a short visit?"
+    assert:
+      - type: contains
+        value: "60"
+
+  - description: "Out of scope question"
+    vars:
+      question: "Can I get a home loan?"
+    assert:
+      - type: not-contains
+        value: "home loan approved"
+
+  - description: "Interest rate blank template"
+    vars:
+      question: "What is the exact rate of interest on the loan?"
+    assert:
+      - type: contains
+        value: "does not specify"
+
+  - description: "Foreclosure charge"
+    vars:
+      question: "What is the foreclosure or prepayment charge?"
+    assert:
+      - type: not-contains
+        value: "does not specify"

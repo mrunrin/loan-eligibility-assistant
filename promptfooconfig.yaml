@@ -1,0 +1,17 @@
+description: "LoanBot RAG Quality Gate"
+
+providers:
+  - id: "http"
+    config:
+      url: "http://localhost:8000/ask"
+      method: POST
+      headers:
+        Content-Type: application/json
+      body:
+        question: "{{question}}"
+        history: []
+        session_id: "eval-session"
+        model_provider: "local"
+      responseParser: "json.answer"
+
+tests: file://eval/questions.yaml

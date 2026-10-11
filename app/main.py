@@ -131,12 +131,29 @@ async def ask(request: AskRequest):
         result = await run_in_threadpool(answer_question, request.question, _history(request), request.model_provider)
         _record_trace(request.question, result)
         latency_ms = int((time.perf_counter() - started) * 1000)
-        write_audit_event(request_id=request_id, session_id=request.session_id, question=request.question, status="completed", latency_ms=latency_ms, sources=result.get("sources"))
+        answered_provider = result.get("answered_provider", request.model_provider)
+        write_audit_event(
+            request_id=request_id,
+            session_id=request.session_id,
+            question=request.question,
+            status="completed",
+            latency_ms=latency_ms,
+            sources=result.get("sources"),
+            requested_provider=request.model_provider,
+            answered_provider=answered_provider,
+        )
         logger.info("ask completed request_id=%s session_id=%s latency_ms=%d", request_id, request.session_id, latency_ms)
         return result
     except Exception:
         logger.exception("ask failed request_id=%s session_id=%s", request_id, request.session_id)
-        write_audit_event(request_id=request_id, session_id=request.session_id, question=request.question, status="failed", latency_ms=int((time.perf_counter() - started) * 1000))
+        write_audit_event(
+            request_id=request_id,
+            session_id=request.session_id,
+            question=request.question,
+            status="failed",
+            latency_ms=int((time.perf_counter() - started) * 1000),
+            requested_provider=request.model_provider,
+        )
         return JSONResponse(status_code=503, content={"answer": "I am having trouble reaching the local loan knowledge base. Please make sure Ollama is running and try again.", "source": "service unavailable", "sources": []})
 
 
@@ -147,7 +164,7 @@ async def ask_stream(request: AskRequest):
 
     async def events() -> AsyncIterator[str]:
         answer = ""
-        started = time.perf_counter()
+        started: float | None = None
 
         def _status(msg: str) -> str:
             return f"event: status\ndata: {json.dumps({'message': msg})}\n\n"
@@ -155,17 +172,18 @@ async def ask_stream(request: AskRequest):
         try:
             # --- Fake live status messages (wrapper, does not touch rag.py) ---
             yield _status("Analyzing your question...")
-            await asyncio.sleep(0.8)
+            await asyncio.sleep(0.3)
 
             yield _status("Searching policy documents with ChromaDB & BM25...")
-            await asyncio.sleep(1.2)
+            await asyncio.sleep(0.4)
 
             yield _status("Reranking candidates with Cross-Encoder...")
-            await asyncio.sleep(1.5)
+            await asyncio.sleep(0.5)
 
             yield _status("Building prompt and calling LLM...")
             await asyncio.sleep(0)
 
+            started = time.perf_counter()
             # --- Real blocking call in threadpool (rag.py untouched) ---
             prepared = await run_in_threadpool(prepare_answer, request.question, _history(request))
             provider = request.model_provider
@@ -185,6 +203,8 @@ async def ask_stream(request: AskRequest):
                 status="completed",
                 latency_ms=int((time.perf_counter() - started) * 1000),
                 sources=result["sources"],
+                requested_provider=request.model_provider,
+                answered_provider=prepared.get("answered_provider", provider),
             )
             yield f"event: done\ndata: {json.dumps(result)}\n\n"
 
@@ -195,7 +215,8 @@ async def ask_stream(request: AskRequest):
                 session_id=request.session_id,
                 question=request.question,
                 status="failed",
-                latency_ms=int((time.perf_counter() - started) * 1000),
+                latency_ms=int((time.perf_counter() - (started or time.perf_counter())) * 1000),
+                requested_provider=request.model_provider,
             )
             yield f"event: error\ndata: {json.dumps({'message': 'LoanBot could not complete that request. Please try again.'})}\n\n"
 

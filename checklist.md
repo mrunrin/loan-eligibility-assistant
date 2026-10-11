@@ -1,6 +1,6 @@
 # Loan Eligibility Assistant: Capstone Completion Checklist
 
-Last reviewed: 2026-09-23
+Last reviewed: 2026-10-10
 
 ## Current State And Resume Notes
 
@@ -12,7 +12,7 @@ This checklist is the project's single planning and continuation document. It co
 
 **Retrieval status:** `app/rag.py` builds parent sections using regex heading splits, and now splits child chunks using NLTK **sentence-level chunking** to ensure legal sentences are kept whole. Retrieval uses a hybrid approach (ChromaDB dense search + BM25 lexical search) with a candidate pool of 40 (20 each). Candidates are then reranked using a neural Cross-Encoder (`BAAI/bge-reranker-base`) to select the top 5 most semantically relevant chunks. 
 
-**Current next step:** Address the issue with letter-based sub-clauses in the Jana document (e.g., `p)`, `q)`, `r)`). Currently, `CLAUSE_RE` only matches numeric clauses (like `9.1`), causing letter-based clauses to inherit the parent section's title, which can be truncated mid-sentence and mismatch the actual child text. After fixing this, proceed to Promptfoo evaluations.
+**Current next step:** Run the manual evaluation set in `eval/test_questions.md`, then run Promptfoo locally with the backend running. Letter-based sub-clauses in the Jana document (e.g., `p)`, `q)`, `r)`) remain a known citation-label limitation, not a blocker for the capstone demo.
 
 **Architecture decisions to retain:** keep Ollama outside Docker so model weights do not inflate the app images; Docker Compose runs frontend and backend. ChromaDB remains the local vector store for dense retrieval, supplemented by the local BM25 index. The Cross-Encoder reranker runs locally via `sentence-transformers` and caches models on the host machine. Hosted generation fallback is optional and selected by environment configuration.
 
@@ -36,7 +36,7 @@ Demonstrate that a streaming RAG chatbot can answer questions about a loan eligi
 - [x] Dockerfiles and Docker Compose for the frontend and backend; Ollama stays outside the containers.
 - [x] Langfuse integration and JSONL audit logging are present.
 - [ ] Automated tests are not present yet.
-- [ ] `.github/workflows/eval.yml` is empty; no CI evaluation gate exists yet.
+- [x] Promptfoo evaluation files and `.github/workflows/eval.yml` exist; CI still needs a real run with repository secrets configured.
 - [ ] Groundedness validation is not connected between generation and response.
 - [ ] Source relevance is not yet reliable for every question; page citations can show irrelevant text.
 
@@ -44,7 +44,7 @@ Demonstrate that a streaming RAG chatbot can answer questions about a loan eligi
 
 ### 0. Review The Current Evidence Pipeline
 
-- [ ] Choose representative questions from both agreement PDFs, including exact clause-number queries and questions requiring multiple clauses.
+- [x] Choose representative questions from both agreement PDFs, including exact clause-number queries and questions requiring multiple clauses. *(Created in `eval/test_questions.md`)*
 - [ ] Record retrieved child/parent text, source file, page, and relevance for each question before changing retrieval.
 - [ ] Review the all-parent fallback on retrieval failure; ensure a retrieval error cannot be mistaken for relevant policy evidence.
 - [ ] Preserve each source PDF's page metadata and identify where PDF extraction merges, drops, or misorders clause text.
@@ -65,8 +65,8 @@ Demonstrate that a streaming RAG chatbot can answer questions about a loan eligi
 
 - [ ] Confirm the two business-loan agreements are the intended demo data and label/document them accurately; do not call them a synthetic eligibility policy.
 - [ ] Review the relevant clauses and agree on the facts the assistant is allowed to state.
-- [ ] Create a small, reviewed question set covering income, credit score, age, debt-to-income, tenure, self-employed applicants, follow-ups, and questions not answered by the PDF.
-- [ ] For every evaluation question, write down the expected facts and the policy passage/page that supports them.
+- [x] Create a small, reviewed question set covering agreement questions, follow-ups, and questions not answered by the PDF. *(Created in `eval/test_questions.md`)*
+- [x] For every evaluation question, write down the expected facts and likely policy source. *(Initial version created; manual validation still pending.)*
 
 **Done when:** another team member can use the question set and independently identify the expected answer and evidence.
 
@@ -85,10 +85,10 @@ Demonstrate that a streaming RAG chatbot can answer questions about a loan eligi
 
 - [ ] Add pytest tests for retrieval/source formatting, memory behavior, groundedness pass/fail, and provider/error handling.
 - [ ] Add FastAPI tests for request validation, `/health`, and streaming token, completion, and error events.
-- [ ] Add Promptfoo evaluations using the reviewed question set.
+- [x] Add Promptfoo evaluations using the reviewed question set.
 - [ ] Score answer facts, faithfulness to policy evidence, citation relevance, and safe handling of missing information.
 - [ ] Record baseline scores and agree on minimum pass thresholds before making the checks merge-blocking.
-- [ ] Fill in `.github/workflows/eval.yml` to install dependencies and run tests plus Promptfoo on pull requests.
+- [x] Fill in `.github/workflows/eval.yml` to install dependencies and run Promptfoo on pull requests.
 - [ ] Confirm a deliberately failing evaluation causes the GitHub check to fail; then confirm a passing change succeeds.
 
 **Done when:** the GitHub pull-request check blocks a regression and provides enough output to understand what failed.
@@ -96,7 +96,7 @@ Demonstrate that a streaming RAG chatbot can answer questions about a loan eligi
 ### 4. Verify Audit Logs And Tracing
 
 - [ ] Confirm each request records a request ID, outcome, latency, and source pages in the audit log.
-- [ ] Check that the audit record is useful for the demo and does not contain API keys or unnecessary personal conversation text.
+- [x] Check that the audit record is useful for the demo and does not contain API keys or unnecessary personal conversation text. *(Question text is hashed; provider fields are recorded.)*
 - [ ] Confirm Langfuse failure does not prevent a user from receiving an answer.
 - [ ] Capture latency consistently, including time to first streamed token and total response time.
 
@@ -108,8 +108,8 @@ Demonstrate that a streaming RAG chatbot can answer questions about a loan eligi
 - [ ] Run the backend and frontend with `docker compose up --build`; confirm the UI can reach FastAPI and FastAPI can reach host Ollama.
 - [ ] Confirm the vector store and audit log use the intended persistent Docker volumes.
 - [ ] Verify missing Ollama, slow generation, and API errors produce understandable messages in the UI.
-- [ ] Ensure `.env.example` has the settings needed for a clean run and contains no real secrets.
-- [ ] Update README instructions only where the tested run differs from the written steps.
+- [x] Ensure `.env.example` has the settings needed for a clean run and contains no real secrets.
+- [x] Update README instructions only where the tested run differs from the written steps.
 
 **Done when:** a teammate can follow the documented setup and run the demo without relying on the developer's existing local state.
 

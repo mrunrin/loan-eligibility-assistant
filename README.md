@@ -123,6 +123,8 @@ HF_MODEL=mistralai/Mistral-7B-Instruct-v0.3
 
 ## Run With Docker Compose
 
+For the capstone demo, the recommended mode is **local Python + host Ollama** because it is fastest to debug and keeps the local model available directly. Docker Compose is still supported for showing deployment readiness: frontend and backend run in containers, while Ollama remains on the host.
+
 ```powershell
 # Start Ollama on the host machine first
 ollama serve
@@ -132,11 +134,80 @@ docker compose up --build
 ```
 
 > [!NOTE]
-> The application downloads the `BAAI/bge-reranker-base` model (~270MB) and NLTK data on first startup. To avoid re-downloading these every time the container restarts, ensure your `docker-compose.yml` mounts the HuggingFace and NLTK cache directories from your host machine (e.g., `~/.cache/huggingface:/root/.cache/huggingface`).
+> The backend image includes the dependencies needed for NLTK sentence chunking and the `BAAI/bge-reranker-base` CrossEncoder reranker. The reranker model and NLTK tokenizer data may download on first startup, so the first run can be slower than later runs.
+
+## Rebuilding The Vector Store
+
+The app persists ChromaDB data and a document cache in `vectorstore/`.
+
+For a normal restart, do nothing. The app reuses the existing vector store and skips re-ingestion.
+
+For a controlled rebuild after changing PDFs or chunking logic:
+
+```powershell
+$env:FORCE_REBUILD_VECTORSTORE="true"
+uvicorn app.main:app --reload
+```
+
+For Docker, add `FORCE_REBUILD_VECTORSTORE=true` temporarily to the backend environment in `docker-compose.yml`, then remove it after the rebuild. Docker does not show the local interactive rebuild prompt, so this environment variable is the correct rebuild control for containers.
 
 ## Model Switching & API Fallback
 
 Update `CHAT_MODEL` in `.env` to switch Ollama models. To use a hosted API fallback like Groq or Hugging Face, change `FALLBACK_MODEL_PROVIDER` and provide the respective `API_KEY`.
+
+## Sample Questions
+
+Try these during the demo:
+
+| Question | Expected behavior |
+|---|---|
+| What is the foreclosure or prepayment charge? | Answers from the foreclosure/prepayment clause if present. |
+| On what date is the EMI due each month? | Retrieves the schedule/EMI due date evidence. |
+| Can a borrower dispute EMI calculation and withhold EMI? | Explains the borrower cannot withhold EMI if that clause is retrieved. |
+| What happens if a borrower stops payment on a cheque provided for the loan? | Connects stop payment to Event of Default if supported by the agreement. |
+| What is the exact rate of interest on the loan? | Says the policy does not specify it if only blank template fields are present. |
+
+## Evaluation
+
+The project includes a small Promptfoo quality gate in `eval/`.
+
+Start the backend:
+
+```powershell
+uvicorn app.main:app --reload
+```
+
+Run the evaluation:
+
+```powershell
+npx promptfoo@latest eval
+```
+
+Manual review questions are in `eval/test_questions.md`. Promptfoo test cases are in `eval/questions.yaml`.
+
+## Observability And Audit Logs
+
+Each completed request can write a local audit entry to `logs/audit.jsonl` with:
+
+- request ID
+- session ID
+- hashed question
+- status
+- latency in milliseconds
+- source pages
+- requested provider
+- provider that actually answered
+
+Raw question text is not stored in the audit log; only a SHA-256 hash is stored. Langfuse tracing is included but requires `LANGFUSE_SECRET_KEY` and `LANGFUSE_PUBLIC_KEY` in `.env`.
+
+## Known Limitations
+
+- The source PDFs are business-loan agreements, not a complete real lending eligibility policy.
+- Some letter-based sub-clauses such as `p)`, `q)`, and `r)` may show imperfect section labels if the PDF extraction merges text awkwardly.
+- Clauses spanning page boundaries may be split across separate evidence chunks.
+- Local `qwen3.5:2b` is good for a laptop demo but may answer less richly than larger hosted models.
+- Hugging Face free-tier inference may reject large models or respond slowly.
+- Promptfoo checks are a capstone regression gate, not a full production compliance evaluation.
 
 ## Troubleshooting
 

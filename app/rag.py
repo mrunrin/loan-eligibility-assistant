@@ -17,7 +17,13 @@ from langchain_community.document_loaders import PyPDFLoader
 from langchain_core.documents import Document
 from langchain_ollama import ChatOllama, OllamaEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from sentence_transformers import CrossEncoder
+
+try:
+    from sentence_transformers import CrossEncoder
+    _CROSS_ENCODER_AVAILABLE = True
+except ImportError:
+    CrossEncoder = None  # type: ignore[assignment, misc]
+    _CROSS_ENCODER_AVAILABLE = False
 
 from app.config import (
     CHAT_MODEL,
@@ -459,9 +465,11 @@ def _candidate_id(document: Document) -> str:
     ) + f"|{document.page_content[:80]}"
 
 
-def _get_reranker() -> CrossEncoder:
+def _get_reranker():
     """Lazy-load the cross-encoder model once per process."""
     global _reranker
+    if not _CROSS_ENCODER_AVAILABLE:
+        return None
     if _reranker is None:
         logger.info("Loading cross-encoder reranker: %s", RERANKER_MODEL)
         _reranker = CrossEncoder(RERANKER_MODEL)
@@ -501,6 +509,9 @@ def _rerank_candidates(
     # --- Step 2: score every unique candidate with the cross-encoder ---
     try:
         reranker = _get_reranker()
+        if reranker is None:
+            logger.warning("CrossEncoder not available; returning top %d candidates without reranking.", FINAL_EVIDENCE_K)
+            return unique_docs[:FINAL_EVIDENCE_K]
         pairs = [(question, doc.page_content) for doc in unique_docs]
         ce_scores: list[float] = reranker.predict(pairs).tolist()
     except Exception:
@@ -798,7 +809,9 @@ User question:
 def answer_question(question: str, history: list[dict] | None = None, provider: str = "local") -> dict:
     prepared = prepare_answer(question, history)
     if prepared["kind"] == "direct":
-        return {key: value for key, value in prepared.items() if key != "kind"}
+        result = {key: value for key, value in prepared.items() if key != "kind"}
+        result["answered_provider"] = "direct"
+        return result
     prompt = prepared["prompt"]
     ready, reason = _provider_ready(provider)
     if not ready:
@@ -813,15 +826,18 @@ def answer_question(question: str, history: list[dict] | None = None, provider: 
             answer = get_chat_model().invoke(prompt).content
     except Exception:
         logger.exception("Provider '%s' failed; falling back to local Ollama", provider)
+        provider = "local"
         try:
             answer = get_chat_model().invoke(prompt).content
         except Exception:
             logger.exception("Local Ollama also failed")
             answer = "Sorry, all providers are currently unavailable. Please check your configuration."
+            provider = "unavailable"
     return {
         "answer": answer,
         "source": prepared["source"],
         "sources": prepared["sources"],
+        "answered_provider": provider,
     }
 
 
@@ -835,6 +851,7 @@ def _provider_ready(provider: str) -> tuple[bool, str]:
 
 def stream_answer(prepared: dict, provider: str = "local") -> Iterator[str]:
     if prepared["kind"] == "direct":
+        prepared["answered_provider"] = "direct"
         for token in re.findall(r"\S+\s*", prepared["answer"]):
             yield token
         return
@@ -843,6 +860,7 @@ def stream_answer(prepared: dict, provider: str = "local") -> Iterator[str]:
     if not ready:
         yield f"⚠️ {reason} Falling back to local Ollama.\n\n"
         provider = "local"
+    prepared["answered_provider"] = provider
     try:
         if provider == "groq":
             yield from _stream_groq(prompt)
@@ -857,9 +875,11 @@ def stream_answer(prepared: dict, provider: str = "local") -> Iterator[str]:
     except Exception:
         logger.exception("Provider '%s' failed; falling back to local Ollama", provider)
         yield "\n\n⚠️ Provider failed. Falling back to local Ollama.\n\n"
+        prepared["answered_provider"] = "local"
         try:
             for chunk in get_chat_model().stream(prompt):
                 if chunk.content:
                     yield chunk.content
         except Exception:
+            prepared["answered_provider"] = "unavailable"
             yield "\n\n[All providers failed. Please check your configuration.]"

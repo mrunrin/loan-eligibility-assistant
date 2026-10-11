@@ -1,0 +1,38 @@
+name: RAG Quality Gate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  evaluate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Start backend
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          GROQ_MODEL: "llama3-8b-8192"
+          FALLBACK_MODEL_PROVIDER: "groq"
+        run: |
+          uvicorn app.main:app --host 0.0.0.0 --port 8000 &
+          sleep 20
+
+      - name: Run Promptfoo evaluation
+        run: npx promptfoo@latest eval --no-cache
