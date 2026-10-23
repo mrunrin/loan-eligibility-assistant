@@ -1,0 +1,1064 @@
+[
+  {
+    "application_ref": "APP-2026-001",
+    "applicant_email": "campus123x+borrower1@gmail.com",
+    "loan_amount_requested": 800000,
+    "loan_purpose": "Purchase inventory",
+    "business_name": "Ganga Fresh Foods",
+    "business_type": "sole_proprietorship",
+    "years_in_business": 2,
+    "annual_revenue": 1800000,
+    "monthly_emi_capacity": 45000,
+    "credit_score": 675,
+    "status": "draft",
+    "pre_qualification_result": null
+  },
+  {
+    "application_ref": "APP-2026-002",
+    "applicant_email": "campus123x+borrower2@gmail.com",
+    "loan_amount_requested": 1200000,
+    "loan_purpose": "Purchase textile machinery",
+    "business_name": "Western Looms",
+    "business_type": "partnership",
+    "years_in_business": 4,
+    "annual_revenue": 3500000,
+    "monthly_emi_capacity": 60000,
+    "credit_score": 705,
+    "status": "draft",
+    "pre_qualification_result": null
+  },
+  {
+    "application_ref": "APP-2026-003",
+    "applicant_email": "campus123x+borrower3@gmail.com",
+    "loan_amount_requested": 750000,
+    "loan_purpose": "Repair equipment and expand service bays",
+    "business_name": "Capital Auto Care",
+    "business_type": "sole_proprietorship",
+    "years_in_business": 2,
+    "annual_revenue": 1800000,
+    "monthly_emi_capacity": 42000,
+    "credit_score": 680,
+    "status": "submitted",
+    "pre_qualification_result": null
+  },
+  {
+    "application_ref": "APP-2026-004",
+    "applicant_email": "campus123x+borrower4@gmail.com",
+    "loan_amount_requested": 1300000,
+    "loan_purpose": "Working capital for spice inventory",
+    "business_name": "Deccan Spice Traders",
+    "business_type": "partnership",
+    "years_in_business": 3,
+    "annual_revenue": 3000000,
+    "monthly_emi_capacity": 65000,
+    "credit_score": 710,
+    "status": "submitted",
+    "pre_qualification_result": null
+  },
+  {
+    "application_ref": "APP-2026-005",
+    "applicant_email": "campus123x+borrower5@gmail.com",
+    "loan_amount_requested": 1200000,
+    "loan_purpose": "Fleet maintenance and logistics software",
+    "business_name": "Mysore Cargo Link",
+    "business_type": "llp",
+    "years_in_business": 4,
+    "annual_revenue": 6000000,
+    "monthly_emi_capacity": 80000,
+    "credit_score": 720,
+    "status": "pre_qual_pass",
+    "pre_qualification_result": {
+      "score": 86,
+      "decision": "pass",
+      "rule_breakdown": [
+        {
+          "name": "credit_score",
+          "passed": true,
+          "score_contribution": 26,
+          "message": "Credit score is 720; demo threshold for passing this rule is 650."
+        },
+        {
+          "name": "business_vintage",
+          "passed": true,
+          "score_contribution": 12,
+          "message": "Business operating history is 4 years; demo threshold is at least 1 year."
+        },
+        {
+          "name": "annual_revenue",
+          "passed": true,
+          "score_contribution": 15,
+          "message": "Annual revenue is INR 6,000,000; demo threshold is INR 1,000,000."
+        },
+        {
+          "name": "monthly_emi_capacity",
+          "passed": true,
+          "score_contribution": 8,
+          "message": "Declared monthly EMI capacity is INR 80,000; demo threshold is INR 25,000."
+        },
+        {
+          "name": "loan_to_revenue_ratio",
+          "passed": true,
+          "score_contribution": 15,
+          "message": "Requested loan is 20% of annual revenue; demo threshold is 75% or less."
+        },
+        {
+          "name": "business_type_eligibility",
+          "passed": true,
+          "score_contribution": 10,
+          "message": "Business type 'llp' is included in the demo allowlist."
+        }
+      ],
+      "model": "demo_rules_v1",
+      "note": "Synthetic demo score; not an actual lender decision or credit policy."
+    }
+  },
+  {
+    "application_ref": "APP-2026-006",
+    "applicant_email": "campus123x+borrower1@gmail.com",
+    "loan_amount_requested": 1500000,
+    "loan_purpose": "Cold storage equipment",
+    "business_name": "Ganga Fresh Foods Expansion",
+    "business_type": "sole_proprietorship",
+    "years_in_business": 4,
+    "annual_revenue": 5500000,
+    "monthly_emi_capacity": 75000,
+    "credit_score": 710,
+    "status": "pre_qual_pass",
+    "pre_qualification_result": {
+      "score": 83,
+      "decision": "pass",
+      "rule_breakdown": [
+        {
+          "name": "credit_score",
+          "passed": true,
+          "score_contribution": 26,
+          "message": "Credit score is 710; demo threshold for passing this rule is 650."
+        },
+        {
+          "name": "business_vintage",
+          "passed": true,
+          "score_contribution": 12,
+          "message": "Business operating history is 4 years; demo threshold is at least 1 year."
+        },
+        {
+          "name": "annual_revenue",
+          "passed": true,
+          "score_contribution": 15,
+          "message": "Annual revenue is INR 5,500,000; demo threshold is INR 1,000,000."
+        },
+        {
+          "name": "monthly_emi_capacity",
+          "passed": true,
+          "score_contribution": 8,
+          "message": "Declared monthly EMI capacity is INR 75,000; demo threshold is INR 25,000."
+        },
+        {
+          "name": "loan_to_revenue_ratio",
+          "passed": true,
+          "score_contribution": 12,
+          "message": "Requested loan is 27% of annual revenue; demo threshold is 75% or less."
+        },
+        {
+          "name": "business_type_eligibility",
+          "passed": true,
+          "score_contribution": 10,
+          "message": "Business type 'sole_proprietorship' is included in the demo allowlist."
+        }
+      ],
+      "model": "demo_rules_v1",
+      "note": "Synthetic demo score; not an actual lender decision or credit policy."
+    }
+  },
+  {
+    "application_ref": "APP-2026-007",
+    "applicant_email": "campus123x+borrower2@gmail.com",
+    "loan_amount_requested": 2000000,
+    "loan_purpose": "Upgrade looms and increase production",
+    "business_name": "Western Looms Equipment Unit",
+    "business_type": "partnership",
+    "years_in_business": 6,
+    "annual_revenue": 5000000,
+    "monthly_emi_capacity": 100000,
+    "credit_score": 755,
+    "status": "pre_qual_pass",
+    "pre_qualification_result": {
+      "score": 94,
+      "decision": "pass",
+      "rule_breakdown": [
+        {
+          "name": "credit_score",
+          "passed": true,
+          "score_contribution": 30,
+          "message": "Credit score is 755; demo threshold for passing this rule is 650."
+        },
+        {
+          "name": "business_vintage",
+          "passed": true,
+          "score_contribution": 15,
+          "message": "Business operating history is 6 years; demo threshold is at least 1 year."
+        },
+        {
+          "name": "annual_revenue",
+          "passed": true,
+          "score_contribution": 15,
+          "message": "Annual revenue is INR 5,000,000; demo threshold is INR 1,000,000."
+        },
+        {
+          "name": "monthly_emi_capacity",
+          "passed": true,
+          "score_contribution": 12,
+          "message": "Declared monthly EMI capacity is INR 100,000; demo threshold is INR 25,000."
+        },
+        {
+          "name": "loan_to_revenue_ratio",
+          "passed": true,
+          "score_contribution": 12,
+          "message": "Requested loan is 40% of annual revenue; demo threshold is 75% or less."
+        },
+        {
+          "name": "business_type_eligibility",
+          "passed": true,
+          "score_contribution": 10,
+          "message": "Business type 'partnership' is included in the demo allowlist."
+        }
+      ],
+      "model": "demo_rules_v1",
+      "note": "Synthetic demo score; not an actual lender decision or credit policy."
+    }
+  },
+  {
+    "application_ref": "APP-2026-008",
+    "applicant_email": "campus123x+borrower3@gmail.com",
+    "loan_amount_requested": 1500000,
+    "loan_purpose": "Add a vehicle inspection bay",
+    "business_name": "Capital Auto Care Upgrade",
+    "business_type": "sole_proprietorship",
+    "years_in_business": 3,
+    "annual_revenue": 3000000,
+    "monthly_emi_capacity": 55000,
+    "credit_score": 640,
+    "status": "manual_review",
+    "pre_qualification_result": {
+      "score": 66,
+      "decision": "manual_review",
+      "rule_breakdown": [
+        {
+          "name": "credit_score",
+          "passed": false,
+          "score_contribution": 12,
+          "message": "Credit score is 640; demo threshold for passing this rule is 650."
+        },
+        {
+          "name": "business_vintage",
+          "passed": true,
+          "score_contribution": 12,
+          "message": "Business operating history is 3 years; demo threshold is at least 1 year."
+        },
+        {
+          "name": "annual_revenue",
+          "passed": true,
+          "score_contribution": 12,
+          "message": "Annual revenue is INR 3,000,000; demo threshold is INR 1,000,000."
+        },
+        {
+          "name": "monthly_emi_capacity",
+          "passed": true,
+          "score_contribution": 8,
+          "message": "Declared monthly EMI capacity is INR 55,000; demo threshold is INR 25,000."
+        },
+        {
+          "name": "loan_to_revenue_ratio",
+          "passed": true,
+          "score_contribution": 12,
+          "message": "Requested loan is 50% of annual revenue; demo threshold is 75% or less."
+        },
+        {
+          "name": "business_type_eligibility",
+          "passed": true,
+          "score_contribution": 10,
+          "message": "Business type 'sole_proprietorship' is included in the demo allowlist."
+        }
+      ],
+      "model": "demo_rules_v1",
+      "note": "Synthetic demo score; not an actual lender decision or credit policy."
+    }
+  },
+  {
+    "application_ref": "APP-2026-009",
+    "applicant_email": "campus123x+borrower4@gmail.com",
+    "loan_amount_requested": 1400000,
+    "loan_purpose": "Seasonal working capital",
+    "business_name": "Deccan Spice Traders Working Capital",
+    "business_type": "partnership",
+    "years_in_business": 3,
+    "annual_revenue": 2800000,
+    "monthly_emi_capacity": 60000,
+    "credit_score": 630,
+    "status": "manual_review",
+    "pre_qualification_result": {
+      "score": 66,
+      "decision": "manual_review",
+      "rule_breakdown": [
+        {
+          "name": "credit_score",
+          "passed": false,
+          "score_contribution": 12,
+          "message": "Credit score is 630; demo threshold for passing this rule is 650."
+        },
+        {
+          "name": "business_vintage",
+          "passed": true,
+          "score_contribution": 12,
+          "message": "Business operating history is 3 years; demo threshold is at least 1 year."
+        },
+        {
+          "name": "annual_revenue",
+          "passed": true,
+          "score_contribution": 12,
+          "message": "Annual revenue is INR 2,800,000; demo threshold is INR 1,000,000."
+        },
+        {
+          "name": "monthly_emi_capacity",
+          "passed": true,
+          "score_contribution": 8,
+          "message": "Declared monthly EMI capacity is INR 60,000; demo threshold is INR 25,000."
+        },
+        {
+          "name": "loan_to_revenue_ratio",
+          "passed": true,
+          "score_contribution": 12,
+          "message": "Requested loan is 50% of annual revenue; demo threshold is 75% or less."
+        },
+        {
+          "name": "business_type_eligibility",
+          "passed": true,
+          "score_contribution": 10,
+          "message": "Business type 'partnership' is included in the demo allowlist."
+        }
+      ],
+      "model": "demo_rules_v1",
+      "note": "Synthetic demo score; not an actual lender decision or credit policy."
+    }
+  },
+  {
+    "application_ref": "APP-2026-010",
+    "applicant_email": "campus123x+borrower5@gmail.com",
+    "loan_amount_requested": 1000000,
+    "loan_purpose": "New delivery van",
+    "business_name": "Mysore Cargo Link New Venture",
+    "business_type": "llp",
+    "years_in_business": 0.5,
+    "annual_revenue": 800000,
+    "monthly_emi_capacity": 20000,
+    "credit_score": 580,
+    "status": "pre_qual_fail",
+    "pre_qualification_result": {
+      "score": 10,
+      "decision": "fail",
+      "rule_breakdown": [
+        {
+          "name": "credit_score",
+          "passed": false,
+          "score_contribution": 0,
+          "message": "Credit score is 580; demo threshold for passing this rule is 650."
+        },
+        {
+          "name": "business_vintage",
+          "passed": false,
+          "score_contribution": 0,
+          "message": "Business operating history is 0.5 years; demo threshold is at least 1 year."
+        },
+        {
+          "name": "annual_revenue",
+          "passed": false,
+          "score_contribution": 0,
+          "message": "Annual revenue is INR 800,000; demo threshold is INR 1,000,000."
+        },
+        {
+          "name": "monthly_emi_capacity",
+          "passed": false,
+          "score_contribution": 0,
+          "message": "Declared monthly EMI capacity is INR 20,000; demo threshold is INR 25,000."
+        },
+        {
+          "name": "loan_to_revenue_ratio",
+          "passed": false,
+          "score_contribution": 0,
+          "message": "Requested loan is 125% of annual revenue; demo threshold is 75% or less."
+        },
+        {
+          "name": "business_type_eligibility",
+          "passed": true,
+          "score_contribution": 10,
+          "message": "Business type 'llp' is included in the demo allowlist."
+        }
+      ],
+      "model": "demo_rules_v1",
+      "note": "Synthetic demo score; not an actual lender decision or credit policy."
+    }
+  },
+  {
+    "application_ref": "APP-2026-011",
+    "applicant_email": "campus123x+borrower6@gmail.com",
+    "loan_amount_requested": 1500000,
+    "loan_purpose": "Buy handicraft raw materials",
+    "business_name": "Ahmedabad Craft Exports",
+    "business_type": "private_limited",
+    "years_in_business": 3,
+    "annual_revenue": 3000000,
+    "monthly_emi_capacity": 55000,
+    "credit_score": 645,
+    "status": "under_review",
+    "pre_qualification_result": {
+      "score": 66,
+      "decision": "manual_review",
+      "rule_breakdown": [
+        {
+          "name": "credit_score",
+          "passed": false,
+          "score_contribution": 12,
+          "message": "Credit score is 645; demo threshold for passing this rule is 650."
+        },
+        {
+          "name": "business_vintage",
+          "passed": true,
+          "score_contribution": 12,
+          "message": "Business operating history is 3 years; demo threshold is at least 1 year."
+        },
+        {
+          "name": "annual_revenue",
+          "passed": true,
+          "score_contribution": 12,
+          "message": "Annual revenue is INR 3,000,000; demo threshold is INR 1,000,000."
+        },
+        {
+          "name": "monthly_emi_capacity",
+          "passed": true,
+          "score_contribution": 8,
+          "message": "Declared monthly EMI capacity is INR 55,000; demo threshold is INR 25,000."
+        },
+        {
+          "name": "loan_to_revenue_ratio",
+          "passed": true,
+          "score_contribution": 12,
+          "message": "Requested loan is 50% of annual revenue; demo threshold is 75% or less."
+        },
+        {
+          "name": "business_type_eligibility",
+          "passed": true,
+          "score_contribution": 10,
+          "message": "Business type 'private_limited' is included in the demo allowlist."
+        }
+      ],
+      "model": "demo_rules_v1",
+      "note": "Synthetic demo score; not an actual lender decision or credit policy."
+    }
+  },
+  {
+    "application_ref": "APP-2026-012",
+    "applicant_email": "campus123x+borrower6@gmail.com",
+    "loan_amount_requested": 1200000,
+    "loan_purpose": "Expand local distribution",
+    "business_name": "Saffron Home Supplies",
+    "business_type": "sole_proprietorship",
+    "years_in_business": 4,
+    "annual_revenue": 6000000,
+    "monthly_emi_capacity": 80000,
+    "credit_score": 725,
+    "status": "under_review",
+    "pre_qualification_result": {
+      "score": 86,
+      "decision": "pass",
+      "rule_breakdown": [
+        {
+          "name": "credit_score",
+          "passed": true,
+          "score_contribution": 26,
+          "message": "Credit score is 725; demo threshold for passing this rule is 650."
+        },
+        {
+          "name": "business_vintage",
+          "passed": true,
+          "score_contribution": 12,
+          "message": "Business operating history is 4 years; demo threshold is at least 1 year."
+        },
+        {
+          "name": "annual_revenue",
+          "passed": true,
+          "score_contribution": 15,
+          "message": "Annual revenue is INR 6,000,000; demo threshold is INR 1,000,000."
+        },
+        {
+          "name": "monthly_emi_capacity",
+          "passed": true,
+          "score_contribution": 8,
+          "message": "Declared monthly EMI capacity is INR 80,000; demo threshold is INR 25,000."
+        },
+        {
+          "name": "loan_to_revenue_ratio",
+          "passed": true,
+          "score_contribution": 15,
+          "message": "Requested loan is 20% of annual revenue; demo threshold is 75% or less."
+        },
+        {
+          "name": "business_type_eligibility",
+          "passed": true,
+          "score_contribution": 10,
+          "message": "Business type 'sole_proprietorship' is included in the demo allowlist."
+        }
+      ],
+      "model": "demo_rules_v1",
+      "note": "Synthetic demo score; not an actual lender decision or credit policy."
+    }
+  },
+  {
+    "application_ref": "APP-2026-013",
+    "applicant_email": "campus123x+borrower1@gmail.com",
+    "loan_amount_requested": 2000000,
+    "loan_purpose": "Purchase commercial refrigeration",
+    "business_name": "Ganga Fresh Foods Commercial Unit",
+    "business_type": "sole_proprietorship",
+    "years_in_business": 7,
+    "annual_revenue": 8000000,
+    "monthly_emi_capacity": 100000,
+    "credit_score": 760,
+    "status": "approved",
+    "pre_qualification_result": {
+      "score": 97,
+      "decision": "pass",
+      "rule_breakdown": [
+        {
+          "name": "credit_score",
+          "passed": true,
+          "score_contribution": 30,
+          "message": "Credit score is 760; demo threshold for passing this rule is 650."
+        },
+        {
+          "name": "business_vintage",
+          "passed": true,
+          "score_contribution": 15,
+          "message": "Business operating history is 7 years; demo threshold is at least 1 year."
+        },
+        {
+          "name": "annual_revenue",
+          "passed": true,
+          "score_contribution": 15,
+          "message": "Annual revenue is INR 8,000,000; demo threshold is INR 1,000,000."
+        },
+        {
+          "name": "monthly_emi_capacity",
+          "passed": true,
+          "score_contribution": 12,
+          "message": "Declared monthly EMI capacity is INR 100,000; demo threshold is INR 25,000."
+        },
+        {
+          "name": "loan_to_revenue_ratio",
+          "passed": true,
+          "score_contribution": 15,
+          "message": "Requested loan is 25% of annual revenue; demo threshold is 75% or less."
+        },
+        {
+          "name": "business_type_eligibility",
+          "passed": true,
+          "score_contribution": 10,
+          "message": "Business type 'sole_proprietorship' is included in the demo allowlist."
+        }
+      ],
+      "model": "demo_rules_v1",
+      "note": "Synthetic demo score; not an actual lender decision or credit policy."
+    }
+  },
+  {
+    "application_ref": "APP-2026-014",
+    "applicant_email": "campus123x+borrower2@gmail.com",
+    "loan_amount_requested": 2500000,
+    "loan_purpose": "Purchase automated looms",
+    "business_name": "Western Looms Automation",
+    "business_type": "partnership",
+    "years_in_business": 5,
+    "annual_revenue": 7000000,
+    "monthly_emi_capacity": 120000,
+    "credit_score": 705,
+    "status": "approved",
+    "pre_qualification_result": {
+      "score": 90,
+      "decision": "pass",
+      "rule_breakdown": [
+        {
+          "name": "credit_score",
+          "passed": true,
+          "score_contribution": 26,
+          "message": "Credit score is 705; demo threshold for passing this rule is 650."
+        },
+        {
+          "name": "business_vintage",
+          "passed": true,
+          "score_contribution": 15,
+          "message": "Business operating history is 5 years; demo threshold is at least 1 year."
+        },
+        {
+          "name": "annual_revenue",
+          "passed": true,
+          "score_contribution": 15,
+          "message": "Annual revenue is INR 7,000,000; demo threshold is INR 1,000,000."
+        },
+        {
+          "name": "monthly_emi_capacity",
+          "passed": true,
+          "score_contribution": 12,
+          "message": "Declared monthly EMI capacity is INR 120,000; demo threshold is INR 25,000."
+        },
+        {
+          "name": "loan_to_revenue_ratio",
+          "passed": true,
+          "score_contribution": 12,
+          "message": "Requested loan is 36% of annual revenue; demo threshold is 75% or less."
+        },
+        {
+          "name": "business_type_eligibility",
+          "passed": true,
+          "score_contribution": 10,
+          "message": "Business type 'partnership' is included in the demo allowlist."
+        }
+      ],
+      "model": "demo_rules_v1",
+      "note": "Synthetic demo score; not an actual lender decision or credit policy."
+    }
+  },
+  {
+    "application_ref": "APP-2026-015",
+    "applicant_email": "campus123x+borrower6@gmail.com",
+    "loan_amount_requested": 900000,
+    "loan_purpose": "New finishing equipment",
+    "business_name": "Ahmedabad Craft Studio",
+    "business_type": "private_limited",
+    "years_in_business": 3,
+    "annual_revenue": 2800000,
+    "monthly_emi_capacity": 50000,
+    "credit_score": 635,
+    "status": "rejected",
+    "pre_qualification_result": {
+      "score": 66,
+      "decision": "manual_review",
+      "rule_breakdown": [
+        {
+          "name": "credit_score",
+          "passed": false,
+          "score_contribution": 12,
+          "message": "Credit score is 635; demo threshold for passing this rule is 650."
+        },
+        {
+          "name": "business_vintage",
+          "passed": true,
+          "score_contribution": 12,
+          "message": "Business operating history is 3 years; demo threshold is at least 1 year."
+        },
+        {
+          "name": "annual_revenue",
+          "passed": true,
+          "score_contribution": 12,
+          "message": "Annual revenue is INR 2,800,000; demo threshold is INR 1,000,000."
+        },
+        {
+          "name": "monthly_emi_capacity",
+          "passed": true,
+          "score_contribution": 8,
+          "message": "Declared monthly EMI capacity is INR 50,000; demo threshold is INR 25,000."
+        },
+        {
+          "name": "loan_to_revenue_ratio",
+          "passed": true,
+          "score_contribution": 12,
+          "message": "Requested loan is 32% of annual revenue; demo threshold is 75% or less."
+        },
+        {
+          "name": "business_type_eligibility",
+          "passed": true,
+          "score_contribution": 10,
+          "message": "Business type 'private_limited' is included in the demo allowlist."
+        }
+      ],
+      "model": "demo_rules_v1",
+      "note": "Synthetic demo score; not an actual lender decision or credit policy."
+    }
+  },
+  {
+    "application_ref": "APP-2026-016",
+    "applicant_email": "campus123x+borrower6@gmail.com",
+    "loan_amount_requested": 1100000,
+    "loan_purpose": "Increase wholesale stock",
+    "business_name": "Saffron Home Supplies Wholesale",
+    "business_type": "sole_proprietorship",
+    "years_in_business": 4,
+    "annual_revenue": 6000000,
+    "monthly_emi_capacity": 80000,
+    "credit_score": 720,
+    "status": "withdrawn",
+    "pre_qualification_result": {
+      "score": 86,
+      "decision": "pass",
+      "rule_breakdown": [
+        {
+          "name": "credit_score",
+          "passed": true,
+          "score_contribution": 26,
+          "message": "Credit score is 720; demo threshold for passing this rule is 650."
+        },
+        {
+          "name": "business_vintage",
+          "passed": true,
+          "score_contribution": 12,
+          "message": "Business operating history is 4 years; demo threshold is at least 1 year."
+        },
+        {
+          "name": "annual_revenue",
+          "passed": true,
+          "score_contribution": 15,
+          "message": "Annual revenue is INR 6,000,000; demo threshold is INR 1,000,000."
+        },
+        {
+          "name": "monthly_emi_capacity",
+          "passed": true,
+          "score_contribution": 8,
+          "message": "Declared monthly EMI capacity is INR 80,000; demo threshold is INR 25,000."
+        },
+        {
+          "name": "loan_to_revenue_ratio",
+          "passed": true,
+          "score_contribution": 15,
+          "message": "Requested loan is 18% of annual revenue; demo threshold is 75% or less."
+        },
+        {
+          "name": "business_type_eligibility",
+          "passed": true,
+          "score_contribution": 10,
+          "message": "Business type 'sole_proprietorship' is included in the demo allowlist."
+        }
+      ],
+      "model": "demo_rules_v1",
+      "note": "Synthetic demo score; not an actual lender decision or credit policy."
+    }
+  },
+  {
+    "application_ref": "APP-2026-017",
+    "applicant_email": "campus123x+borrower7@gmail.com",
+    "product_type": "personal_loan",
+    "loan_amount_requested": 600000,
+    "loan_purpose": "Home renovation",
+    "employment_type": "salaried",
+    "employer_name": "Tata Consultancy Services",
+    "date_of_birth": "1990-03-15",
+    "work_experience_years": 8,
+    "current_job_years": 3,
+    "monthly_income": 95000,
+    "existing_emis": 10000,
+    "credit_score": 760,
+    "status": "pre_qual_pass",
+    "pre_qualification_result": {
+      "score": 100,
+      "decision": "pass",
+      "rule_breakdown": [
+        {
+          "rule": "Loan amount range",
+          "passed": true,
+          "score": 5,
+          "message": "Requested ₹600,000 (allowed ₹25,000 – ₹5,000,000)",
+          "knockout": true
+        },
+        {
+          "rule": "Applicant age",
+          "passed": true,
+          "score": 5,
+          "message": "Age 36 (allowed 21–60)",
+          "knockout": true
+        },
+        {
+          "rule": "Employment type",
+          "passed": true,
+          "score": 5,
+          "message": "Salaried",
+          "knockout": true
+        },
+        {
+          "rule": "Work experience",
+          "passed": true,
+          "score": 5,
+          "message": "8 year(s) total, 3 with current employer (required 2 total, 1 current)",
+          "knockout": true
+        },
+        {
+          "rule": "Minimum monthly income",
+          "passed": true,
+          "score": 10,
+          "message": "Net monthly income ₹95,000 (≥ required ₹25,000)",
+          "knockout": true
+        },
+        {
+          "rule": "Minimum credit score",
+          "passed": true,
+          "score": 35,
+          "message": "Credit score 760 (≥ required 650)",
+          "knockout": false
+        },
+        {
+          "rule": "Fixed obligations to income (FOIR)",
+          "passed": true,
+          "score": 35,
+          "message": "32% of net monthly income (existing ₹10,000 + new EMI ₹19,929; allowed ≤ 50%)",
+          "knockout": false
+        }
+      ]
+    }
+  },
+  {
+    "application_ref": "APP-2026-018",
+    "applicant_email": "campus123x+borrower7@gmail.com",
+    "product_type": "credit_card",
+    "employment_type": "salaried",
+    "employer_name": "Tata Consultancy Services",
+    "date_of_birth": "1990-03-15",
+    "monthly_income": 95000,
+    "existing_emis": 10000,
+    "credit_score": 760,
+    "status": "approved",
+    "pre_qualification_result": {
+      "score": 100,
+      "decision": "pass",
+      "rule_breakdown": [
+        {
+          "rule": "Applicant age",
+          "passed": true,
+          "score": 10,
+          "message": "Age 36 (allowed 18+)",
+          "knockout": true
+        },
+        {
+          "rule": "Minimum monthly income",
+          "passed": true,
+          "score": 20,
+          "message": "Net monthly income ₹95,000 (≥ required ₹25,000)",
+          "knockout": true
+        },
+        {
+          "rule": "Minimum credit score",
+          "passed": true,
+          "score": 35,
+          "message": "Credit score 760 (≥ required 650)",
+          "knockout": false
+        },
+        {
+          "rule": "Fixed obligations to income (FOIR)",
+          "passed": true,
+          "score": 35,
+          "message": "11% of net monthly income (existing EMIs ₹10,000; allowed ≤ 50%)",
+          "knockout": false
+        }
+      ]
+    }
+  },
+  {
+    "application_ref": "APP-2026-019",
+    "applicant_email": "campus123x+borrower4@gmail.com",
+    "product_type": "personal_loan",
+    "loan_amount_requested": 400000,
+    "loan_purpose": "Medical expenses",
+    "employment_type": "self_employed",
+    "employer_name": "Reddy Interior Designs",
+    "date_of_birth": "1988-07-02",
+    "work_experience_years": 10,
+    "current_job_years": 10,
+    "monthly_income": 60000,
+    "existing_emis": 8000,
+    "credit_score": 710,
+    "status": "pre_qual_fail",
+    "pre_qualification_result": {
+      "score": 95,
+      "decision": "fail",
+      "rule_breakdown": [
+        {
+          "rule": "Loan amount range",
+          "passed": true,
+          "score": 5,
+          "message": "Requested ₹400,000 (allowed ₹25,000 – ₹5,000,000)",
+          "knockout": true
+        },
+        {
+          "rule": "Applicant age",
+          "passed": true,
+          "score": 5,
+          "message": "Age 38 (allowed 21–60)",
+          "knockout": true
+        },
+        {
+          "rule": "Employment type",
+          "passed": false,
+          "score": 0,
+          "message": "Self-employed — this personal loan is offered to salaried applicants only",
+          "knockout": true
+        },
+        {
+          "rule": "Work experience",
+          "passed": true,
+          "score": 5,
+          "message": "10 year(s) total, 10 with current employer (required 2 total, 1 current)",
+          "knockout": true
+        },
+        {
+          "rule": "Minimum monthly income",
+          "passed": true,
+          "score": 10,
+          "message": "Net monthly income ₹60,000 (≥ required ₹25,000)",
+          "knockout": true
+        },
+        {
+          "rule": "Minimum credit score",
+          "passed": true,
+          "score": 35,
+          "message": "Credit score 710 (≥ required 650)",
+          "knockout": false
+        },
+        {
+          "rule": "Fixed obligations to income (FOIR)",
+          "passed": true,
+          "score": 35,
+          "message": "35% of net monthly income (existing ₹8,000 + new EMI ₹13,286; allowed ≤ 50%)",
+          "knockout": false
+        }
+      ]
+    }
+  },
+  {
+    "application_ref": "APP-2026-020",
+    "applicant_email": "campus123x+borrower3@gmail.com",
+    "product_type": "credit_card",
+    "employment_type": "salaried",
+    "employer_name": "Wipro",
+    "date_of_birth": "1999-11-20",
+    "monthly_income": 32000,
+    "existing_emis": 0,
+    "credit_score": 630,
+    "status": "manual_review",
+    "pre_qualification_result": {
+      "score": 65,
+      "decision": "manual_review",
+      "rule_breakdown": [
+        {
+          "rule": "Applicant age",
+          "passed": true,
+          "score": 10,
+          "message": "Age 26 (allowed 18+)",
+          "knockout": true
+        },
+        {
+          "rule": "Minimum monthly income",
+          "passed": true,
+          "score": 20,
+          "message": "Net monthly income ₹32,000 (≥ required ₹25,000)",
+          "knockout": true
+        },
+        {
+          "rule": "Minimum credit score",
+          "passed": false,
+          "score": 0,
+          "message": "Credit score 630 (< required 650)",
+          "knockout": false
+        },
+        {
+          "rule": "Fixed obligations to income (FOIR)",
+          "passed": true,
+          "score": 35,
+          "message": "0% of net monthly income (existing EMIs ₹0; allowed ≤ 50%)",
+          "knockout": false
+        }
+      ]
+    }
+  },
+  {
+    "application_ref": "APP-2026-021",
+    "applicant_email": "campus123x+borrower5@gmail.com",
+    "product_type": "personal_loan",
+    "loan_amount_requested": 800000,
+    "loan_purpose": "Debt consolidation",
+    "employment_type": "salaried",
+    "employer_name": "Bosch India",
+    "date_of_birth": "1985-01-05",
+    "work_experience_years": 12,
+    "current_job_years": 4,
+    "monthly_income": 70000,
+    "existing_emis": 25000,
+    "credit_score": 690,
+    "status": "manual_review",
+    "pre_qualification_result": {
+      "score": 65,
+      "decision": "manual_review",
+      "rule_breakdown": [
+        {
+          "rule": "Loan amount range",
+          "passed": true,
+          "score": 5,
+          "message": "Requested ₹800,000 (allowed ₹25,000 – ₹5,000,000)",
+          "knockout": true
+        },
+        {
+          "rule": "Applicant age",
+          "passed": true,
+          "score": 5,
+          "message": "Age 41 (allowed 21–60)",
+          "knockout": true
+        },
+        {
+          "rule": "Employment type",
+          "passed": true,
+          "score": 5,
+          "message": "Salaried",
+          "knockout": true
+        },
+        {
+          "rule": "Work experience",
+          "passed": true,
+          "score": 5,
+          "message": "12 year(s) total, 4 with current employer (required 2 total, 1 current)",
+          "knockout": true
+        },
+        {
+          "rule": "Minimum monthly income",
+          "passed": true,
+          "score": 10,
+          "message": "Net monthly income ₹70,000 (≥ required ₹25,000)",
+          "knockout": true
+        },
+        {
+          "rule": "Minimum credit score",
+          "passed": true,
+          "score": 35,
+          "message": "Credit score 690 (≥ required 650)",
+          "knockout": false
+        },
+        {
+          "rule": "Fixed obligations to income (FOIR)",
+          "passed": false,
+          "score": 0,
+          "message": "74% of net monthly income (existing ₹25,000 + new EMI ₹26,571; allowed ≤ 50%)",
+          "knockout": false
+        }
+      ]
+    }
+  },
+  {
+    "application_ref": "APP-2026-022",
+    "applicant_email": "campus123x+borrower6@gmail.com",
+    "product_type": "personal_loan",
+    "loan_amount_requested": 300000,
+    "loan_purpose": "Wedding",
+    "employment_type": "salaried",
+    "employer_name": "HDFC Life",
+    "date_of_birth": "1996-09-12",
+    "work_experience_years": 4,
+    "current_job_years": 2,
+    "monthly_income": 55000,
+    "existing_emis": 0,
+    "credit_score": 735,
+    "status": "draft",
+    "pre_qualification_result": null
+  }
+]

@@ -6,9 +6,34 @@ on:
   pull_request:
     branches: [main]
 
+env:
+  DATABASE_URL: postgresql+asyncpg://loanbot:loanbot@localhost:5432/loanbot
+  JWT_SECRET_KEY: ci-only-jwt-secret-0123456789abcdef0123456789abcdef
+  CHAT_MODEL: qwen3.5:2b
+  EMBEDDING_MODEL: nomic-embed-text
+  OLLAMA_BASE_URL: http://localhost:11434
+  UPLOAD_DIR: /tmp/uploads
+  OLLAMA_VERSION: "0.32.14"
+
 jobs:
   evaluate:
     runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: loanbot
+          POSTGRES_PASSWORD: loanbot
+          POSTGRES_DB: loanbot
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - uses: actions/checkout@v4
 
@@ -16,19 +41,40 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+          cache: pip
+          cache-dependency-path: |
+            requirements-docker.txt
+            requirements-dev.txt
 
-      - name: Install Python dependencies
-        run: pip install -r requirements.txt
+      - name: Install Python dependencies (CPU-only torch)
+        run: |
+          pip install --index-url https://download.pytorch.org/whl/cpu torch==2.13.0
+          pip install -r requirements-docker.txt -r requirements-dev.txt
 
-      - name: Install Ollama
-        run: curl -fsSL https://ollama.com/install.sh | sh
+      - name: Lint
+        run: ruff check .
+
+      - name: Run database migrations
+        run: python -m alembic upgrade head
+
+      - name: Unit and API integration tests
+        run: pytest -v
+
+      - name: Install Ollama (pinned)
+        run: curl -fsSL https://ollama.com/install.sh | OLLAMA_VERSION=${OLLAMA_VERSION} sh
 
       - name: Start Ollama and pull models
         run: |
           ollama serve > /tmp/ollama.log 2>&1 &
-          sleep 5
+          timeout 60 bash -c 'until curl -sf localhost:11434/api/version; do sleep 2; done'
           ollama pull qwen3.5:2b
           ollama pull nomic-embed-text
+
+      - name: Retrieval quality gate (recall@5 / MRR on the golden set)
+        env:
+          FORCE_REBUILD_VECTORSTORE: "true"
+          RECALL_THRESHOLD: "0.80"
+        run: python eval/retrieval_eval.py
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -36,14 +82,38 @@ jobs:
           node-version: "20"
 
       - name: Start backend
-        env:
-          CHAT_MODEL: qwen3.5:2b
-          EMBEDDING_MODEL: nomic-embed-text
-          OLLAMA_BASE_URL: http://localhost:11434
-          FORCE_REBUILD_VECTORSTORE: "true"
         run: |
-          uvicorn app.main:app --host 0.0.0.0 --port 8000 &
-          sleep 45
+          uvicorn app.main:app --host 0.0.0.0 --port 8000 > /tmp/backend.log 2>&1 &
+          # /health is 200 only once the database and the vector store are ready
+          timeout 300 bash -c 'until curl -sf localhost:8000/health; do sleep 3; done'
+
+      - name: Create eval user and access token
+        env:
+          ACCESS_TOKEN_EXPIRE_MINUTES: "120"
+        run: |
+          python - <<'EOF' >> "$GITHUB_ENV"
+          import secrets, uuid
+          import psycopg2
+          from app.auth import create_access_token, hash_password
+          conn = psycopg2.connect("postgresql://loanbot:loanbot@localhost:5432/loanbot")
+          uid = uuid.uuid4()
+          with conn, conn.cursor() as cur:
+              cur.execute(
+                  "INSERT INTO users (id, email, hashed_password, full_name, role, is_active, is_email_verified)"
+                  " VALUES (%s, %s, %s, 'Eval Bot', 'borrower', true, true)",
+                  (str(uid), f"eval-{uid.hex[:8]}@example.com", hash_password(secrets.token_urlsafe(16))),
+              )
+          print(f"EVAL_ACCESS_TOKEN={create_access_token({'sub': str(uid), 'role': 'borrower'})}")
+          EOF
 
       - name: Run Promptfoo evaluation
-        run: npx promptfoo@latest eval --no-cache
+        run: npx promptfoo@0.102.0 eval --no-cache -o eval/promptfoo_results.json || true
+
+      - name: Gate on promptfoo pass rate
+        env:
+          PASS_RATE_THRESHOLD: "0.9"
+        run: python eval/check_pass_rate.py eval/promptfoo_results.json
+
+      - name: Backend log on failure
+        if: failure()
+        run: tail -200 /tmp/backend.log || true

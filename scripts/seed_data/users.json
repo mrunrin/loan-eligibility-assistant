@@ -1,0 +1,98 @@
+[
+  {
+    "user_ref": "USR-ADM-001",
+    "full_name": "Aditi Sharma",
+    "email": "campus123x+admin1@gmail.com",
+    "password": "DemoAdmin!2026",
+    "role": "admin",
+    "state": "Delhi"
+  },
+  {
+    "user_ref": "USR-ADM-002",
+    "full_name": "Rohan Mehta",
+    "email": "campus123x+admin2@gmail.com",
+    "password": "DemoAdmin2!2026",
+    "role": "admin",
+    "state": "Uttar Pradesh"
+  },
+  {
+    "user_ref": "USR-OFF-001",
+    "full_name": "Kavya Nair",
+    "email": "campus123x+loanoff1@gmail.com",
+    "password": "DemoOfficer!2026",
+    "role": "loan_officer",
+    "state": "Karnataka"
+  },
+  {
+    "user_ref": "USR-OFF-002",
+    "full_name": "Arjun Verma",
+    "email": "campus123x+loanoff2@gmail.com",
+    "password": "DemoOfficer2!2026",
+    "role": "loan_officer",
+    "state": "Delhi"
+  },
+  {
+    "user_ref": "USR-OFF-003",
+    "full_name": "Neha Kapoor",
+    "email": "campus123x+loanoff3@gmail.com",
+    "password": "DemoOfficer3!2026",
+    "role": "loan_officer",
+    "state": "Maharashtra"
+  },
+  {
+    "user_ref": "USR-BOR-001",
+    "full_name": "Rajesh Kumar",
+    "email": "campus123x+borrower1@gmail.com",
+    "password": "DemoBorrower1!2026",
+    "role": "borrower",
+    "state": "Uttar Pradesh"
+  },
+  {
+    "user_ref": "USR-BOR-002",
+    "full_name": "Pooja Patel",
+    "email": "campus123x+borrower2@gmail.com",
+    "password": "DemoBorrower2!2026",
+    "role": "borrower",
+    "state": "Maharashtra"
+  },
+  {
+    "user_ref": "USR-BOR-003",
+    "full_name": "Imran Khan",
+    "email": "campus123x+borrower3@gmail.com",
+    "password": "DemoBorrower3!2026",
+    "role": "borrower",
+    "state": "Delhi"
+  },
+  {
+    "user_ref": "USR-BOR-004",
+    "full_name": "Sneha Reddy",
+    "email": "campus123x+borrower4@gmail.com",
+    "password": "DemoBorrower4!2026",
+    "role": "borrower",
+    "state": "Telangana"
+  },
+  {
+    "user_ref": "USR-BOR-005",
+    "full_name": "Vikram Singh",
+    "email": "campus123x+borrower5@gmail.com",
+    "password": "DemoBorrower5!2026",
+    "role": "borrower",
+    "state": "Karnataka"
+  },
+  {
+    "user_ref": "USR-BOR-006",
+    "full_name": "Meera Joshi",
+    "email": "campus123x+borrower6@gmail.com",
+    "password": "DemoBorrower6!2026",
+    "role": "borrower",
+    "state": "Gujarat"
+  },
+  {
+    "user_ref": "USR-BOR-007",
+    "full_name": "Deepak Das",
+    "email": "campus123x+borrower7@gmail.com",
+    "password": "DemoBorrower7!2026",
+    "role": "borrower",
+    "state": "Rajasthan"
+  }
+]

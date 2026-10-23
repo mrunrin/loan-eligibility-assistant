@@ -1,2 +1,5 @@
-streamlit
-requests
+# Streamlit frontend image. st.context.ip_address needs Streamlit >= 1.45.
+streamlit==1.60.0
+requests==2.34.2
+pandas==3.0.5
+extra-streamlit-components==0.1.71

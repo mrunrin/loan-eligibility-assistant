@@ -18,6 +18,7 @@ def write_audit_event(
     sources: list[dict] | None = None,
     requested_provider: str | None = None,
     answered_provider: str | None = None,
+    intent: str | None = None,
 ) -> None:
     """Append non-sensitive request metadata for local demo auditability."""
     event = {
@@ -29,6 +30,7 @@ def write_audit_event(
         "latency_ms": latency_ms,
         "requested_provider": requested_provider,
         "answered_provider": answered_provider,
+        "intent": intent,
         "source_pages": [source.get("page") for source in sources or []],
     }
     try:
@@ -37,3 +39,10 @@ def write_audit_event(
             file.write(json.dumps(event) + "\n")
     except OSError:
         logger.exception("Audit log write failed")
+
+
+def record_db_event(db, *, event_type: str, user_id=None, payload: dict | None = None, request_id: str | None = None) -> None:
+    """Stage an audit_events row in the caller's transaction (committed with the business change)."""
+    from app.models import AuditEvent
+
+    db.add(AuditEvent(event_type=event_type, user_id=user_id, payload=payload or {}, request_id=request_id))

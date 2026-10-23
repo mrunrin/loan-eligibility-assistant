@@ -9,3 +9,11 @@ vectorstore/
 logs/
 .DS_Store
 chroma_db/
+hf_cache/
+uploads/*
+!uploads/.gitkeep
+graphify-out/
+scripts/chunking_lab/output_*.md
+eval/promptfoo_results.json
+.pytest_cache/
+.ruff_cache/

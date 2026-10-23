@@ -1,0 +1,56 @@
+{
+  "model": "demo_rules_v1",
+  "warning": "These are invented demo thresholds to populate UI states, not bank policy from the supplied agreements. Align rule names and scoring with the application's actual pre-qualification engine before using the seed in integration tests.",
+  "scoring": "Sum score_contribution across six rules; maximum 100.",
+  "rules": [
+    {
+      "name": "credit_score",
+      "max_points": 30,
+      "points": "30 if >=750; 26 if >=700; 20 if >=650; 12 if >=600; otherwise 0",
+      "passed": "credit_score >= 650"
+    },
+    {
+      "name": "business_vintage",
+      "max_points": 15,
+      "points": "15 if years >=5; 12 if >=3; 8 if >=1; otherwise 0",
+      "passed": "years_in_business >= 1"
+    },
+    {
+      "name": "annual_revenue",
+      "max_points": 15,
+      "points": "15 if revenue >= INR 5,000,000; 12 if >= INR 2,500,000; 8 if >= INR 1,000,000; otherwise 0",
+      "passed": "annual_revenue >= INR 1,000,000"
+    },
+    {
+      "name": "monthly_emi_capacity",
+      "max_points": 15,
+      "points": "15 if capacity >= INR 150,000; 12 if >= INR 100,000; 8 if >= INR 50,000; 4 if >= INR 25,000; otherwise 0",
+      "passed": "monthly_emi_capacity >= INR 25,000"
+    },
+    {
+      "name": "loan_to_revenue_ratio",
+      "max_points": 15,
+      "points": "15 if requested loan/revenue <=0.25; 12 if <=0.50; 8 if <=0.75; 4 if <=1.00; otherwise 0",
+      "passed": "requested loan <= 75% of annual revenue"
+    },
+    {
+      "name": "business_type_eligibility",
+      "max_points": 10,
+      "points": "10 for allowlisted demo types; otherwise 0",
+      "passed": "business_type is in the demo allowlist"
+    }
+  ],
+  "decision_bands": {
+    "pass": "score >=75 and first five pass checks pass",
+    "manual_review": "score >=55 when not a pass",
+    "fail": "score <55"
+  },
+  "demo_allowlist": [
+    "llp",
+    "partnership",
+    "private_limited",
+    "producer_company",
+    "professional_services",
+    "sole_proprietorship"
+  ]
+}

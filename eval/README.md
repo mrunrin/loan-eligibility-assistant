@@ -1,32 +1,47 @@
-# LoanBot Evaluation
+# HDFC Loan Bot Evaluation
 
-This folder contains the capstone evaluation set used to check answer quality, source faithfulness, and regression risk.
+Two automated gates plus a manual review set.
 
 ## Files
 
-- `test_questions.md`: human-readable manual review set with expected facts and notes.
-- `questions.yaml`: Promptfoo test cases used by the automated quality gate.
+- `golden_retrieval.yaml` — 65 questions grounded in the 4 HDFC PDFs (personal loan, business loan, credit card × 2), each with the gold (document, page) that answers it.
+- `retrieval_eval.py` — runs the real hybrid retriever and reports **recall@3** and **MRR** (k is
+  `FINAL_EVIDENCE_K`, the number of passages the answer model sees); exits 1 below
+  `RECALL_THRESHOLD` (default 0.80). Needs Ollama for query embeddings; no LLM calls.
+- `questions.yaml` — 15 Promptfoo answer-level cases (facts, missing-policy handling, lender filtering,
+  guardrails, startup cold-start regression). Every case also runs the numeric-faithfulness check
+  defined in `promptfooconfig.yaml`: each number in the answer must appear in the cited evidence or
+  the question.
+- `check_pass_rate.py` — gates on the overall Promptfoo pass rate (`PASS_RATE_THRESHOLD`, default 0.9),
+  so one flaky LLM answer does not fail CI on its own.
+- `test_questions.md` — human-readable manual review set.
 
-## Run Locally
-
-Start the backend first:
+## Run locally
 
 ```powershell
-uvicorn app.main:app --reload
+python eval/retrieval_eval.py
 ```
 
-Then run Promptfoo from the project root:
+Start the backend, log in as any verified user to get an access token, then:
 
 ```powershell
-npx promptfoo@latest eval
+$env:EVAL_ACCESS_TOKEN = "<access token>"
+npx promptfoo@0.102.0 eval --no-cache -o eval/promptfoo_results.json
+python eval/check_pass_rate.py eval/promptfoo_results.json
 ```
 
-The Promptfoo config calls `http://localhost:8000/ask` with `model_provider: local`.
+Promptfoo calls `http://localhost:8000/ask` (answers come from Groq, so `GROQ_API_KEY` must be set) with a
+separate chat session per question, so the server-side conversation memory cannot leak between cases.
+Each call counts against the eval user's daily token budget; use an officer or admin token, which is unlimited.
 
-## What The Gate Checks
+## What the gates check
 
-- Key facts appear in the answer.
-- Missing-policy questions do not receive invented answers.
-- Regressions such as returning "does not specify" when evidence exists are caught.
+- Retrieval: the right page reaches the top 3 (recall@3) and how high it ranks (MRR).
+- Answers: key facts present, "the policy does not specify that" for blank or missing facts, no numbers
+  outside the evidence, lender-specific questions cite only that lender, PII in the question is removed
+  (with a notice) rather than refused, and prompt injection and off-topic requests are refused.
 
-This is a capstone gate, not a full production evaluation suite. Manual source review is still required before the demo.
+After a `CHUNKER_VERSION` bump (v4 added nomic task prefixes and chunk metadata), re-run the retrieval eval
+and compare recall@3 / MRR with the previous run.
+
+These sets are small. They catch regressions; they do not prove production-grade accuracy.

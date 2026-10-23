@@ -1,0 +1,6 @@
+# Tests, lint, and offline evaluation tooling (CI + local development).
+pytest==9.1.1
+httpx==0.28.1
+pyyaml==6.0.3
+ruff==0.13.3
+pre-commit==4.3.0

@@ -1,83 +1,124 @@
-# Project Summary: LoanBot (EXL Banking Assistant)
+# Architecture Summary: HDFC Loan Portal + HDFC Loan Bot
 
 ## Overview
-**LoanBot** is a specialized Retrieval-Augmented Generation (RAG) AI assistant built to parse, retrieve, and accurately answer complex questions based on unstructured banking and loan policy PDFs. The system prioritizes local, private inference while maintaining the ability to fall back to cloud-based LLMs for faster processing.
+A loan origination portal (business loan, personal loan and credit card applications, deterministic
+pre-qualification, officer review, admin) with **HDFC Loan Bot**, a grounded assistant that answers from the
+policy knowledge base — 5 HDFC PDFs (personal loan, business loan, credit card agreements) + 4 HDFC/RBI
+MD files — with clause-level citations, and can also explain the borrower's own application or compute an EMI.
+Student capstone demo; not an official HDFC Bank service.
 
 ---
 
-## 1. Frontend (User Interface Layer)
-- **Framework:** Built entirely in **Streamlit**.
-- **Interface:** A modern, sleek chat interface featuring a native chat layout.
-- **Features:** 
-  - Real-time token streaming.
-  - Live status spinners that explicitly show backend progress (e.g., "Retrieving chunks", "Reranking with Cross-Encoder").
-  - A bottom-pinned chat bar with an embedded Model Selector.
-  - An expandable "View Sources" UI that cites the exact PDF name, page number, section, clause, and raw text excerpt the AI used.
+## 1. Frontend (Streamlit, multi-page)
+- `frontend/streamlit_app.py` — login (password → TOTP step, or first-login 2FA enrollment for staff),
+  email verification, FAQ.
+- `frontend/pages/` — Register, My Applications, Apply (product picker + 4-step form with required-document
+  checklist), Application Detail (rule breakdown, authorised document download, appeal, withdraw, officer
+  decision), Officer Queue (claim / take over → decide), Admin Dashboard, AI Loan Assistant, Security (2FA, account deletion).
+- `frontend/nav.py` — the single place for `API_URL`, the authenticated `api()` helper (bearer token,
+  forwards the client IP, one refresh-and-retry on 401, backend-down handling), page/role guards, sidebar,
+  logout and the 5-minute browser idle timer.
+- Tokens live in `st.session_state` and in JS-readable cookies (to survive a page refresh); see Known Limitations in the README.
 
----
+## 2. Backend (FastAPI)
+- Routers: `auth` (register/login/refresh/logout/verify/delete), `mfa` (TOTP), `applications`
+  (CRUD, submit, documents, withdraw, appeal), `prequal`, `officer`, `admin`; chat endpoints `/ask`,
+  `/ask/stream`; `/health`.
+- Middleware: TrustedHost → CORS (no credentials; bearer auth only) → request-ID → shared rate limiter
+  (`app/limiter.py`, `user_or_ip` key — per-user bucket for authenticated endpoints, per-client-IP
+  via trusted `X-Forwarded-For` for anonymous; `TRUSTED_PROXIES` CIDRs configured in `.env`).
+  Rate limits: `/ask` + `/ask/stream` 20/min · login/register 10/min · token refresh 30/min
+  · resend verification 3/4 h · MFA setup/confirm/validate 5–10/min.
+- `/health` is 200 only when PostgreSQL and the vector store are ready.
 
-## 2. Backend (API Layer)
-- **Framework:** **FastAPI** providing high-performance async endpoints.
-- **Endpoints:**
-  - `/ask/stream`: Handles real-time Server-Sent Events (SSE) to stream both processing statuses and generated LLM text to the UI.
-  - `/ask`: A synchronous JSON endpoint for programmatic queries.
-  - `/health`: Exposes readiness states for the vector database and the local Ollama daemon.
-- **Observability & Auditing:**
-  - **Langfuse Integration:** Traces inputs, outputs, LLM latency, and token generation.
-  - **Audit Logger:** A custom tracker (`app/audit.py`) that logs every request ID, session ID, question hash, latency, and source pages into a local `audit.jsonl` file.
+### Cold-start sequence (blocks traffic until all 4 steps complete)
+```
+[1/4] Running DB migrations...          ← Alembic upgrade head (psycopg2, sync, advisory-locked)
+[1/4] DB migrations applied ✓
+[2/4] Loading reranker model...         ← cross-encoder warm-up, ~90 MB download on first run
+[2/4] Reranker model loaded ✓
+[3/4] Connecting to Ollama + loading vectorstore...  ← stops with a clear error if Ollama is down
+[3/4] Vectorstore ready ✓
+[4/4] Server ready — accepting requests ✓
+```
+All `print(..., flush=True)` — always visible in the terminal regardless of log level.
+The `lifespan` coroutine only `yield`s (opens for traffic) after step 4. A corrupt Chroma collection is
+wiped and rebuilt once automatically.
 
----
+## 3. Data layer
+- PostgreSQL 15, SQLAlchemy 2 async (asyncpg) at runtime; Alembic (psycopg2) migrations `001`–`012`,
+  applied automatically at startup (step 1) under a Postgres advisory lock.
+- Tables: users, loan_applications, pre_qualification_results, documents, chat_sessions, chat_messages,
+  audit_events. Officer-queue index on `loan_applications(status, created_at)`.
+- Status machine: draft → (submit) pre_qual_pass | pre_qual_fail | manual_review → (officer claim)
+  under_review → approved | rejected; pre_qual_fail → (borrower appeal with written reason) manual_review;
+  `POST /applications/{id}/withdraw` from any state before a decision. Claims untouched for
+  `CLAIM_TIMEOUT_HOURS` (24) can be taken over. Status writes take row locks.
+- Submit needs the per-product document checklist (`REQUIRED_DOCUMENTS`). Every status change emails the
+  borrower (failed rules listed in writing on pre_qual_fail). Documents are stored under random names with a
+  SHA-256 hash checked on each download.
+- Pre-qualification (`app/prequal.py`): per-product weighted rules plus knockout rules; self-reported inputs
+  are flagged `unverified` in the stored JSONB breakdown.
 
-## 3. RAG Pipeline (Data & Retrieval Layer)
-The core intelligence of LoanBot relies on a highly sophisticated Hybrid Retrieval engine.
+## 4. Security model
+- bcrypt passwords; JWT access (5 min) + rotating refresh (1 hour, hash stored; reuse revokes the session); every token carries `iss`/`aud`.
+- Sessions end server-side after 15 idle minutes or 12 hours total (`users.last_seen_at`, `session_started_at`).
+- Lockout after 5 failed passwords or TOTP codes, doubling on each repeat (15 min → 24 h max), with an email to the owner;
+  one IP gets 429 after 20 failed logins in 15 min, across all accounts; email OTP from a CSPRNG, stored as
+  an HMAC, burned after repeated failures.
+- TOTP secrets Fernet-encrypted at rest; codes cannot be replayed; enabling 2FA uses a pending secret so
+  `/2fa/setup` can never switch existing 2FA off. 2FA is mandatory for officers and admins.
+- Uploads: extension + magic-byte check, streamed 10 MB cap, draft-only, base-name sanitisation, orphan
+  cleanup on failure, SHA-256 integrity check on download; downloads only for the owner or officers/admins.
+- Audit: request-level JSONL log (question stored only as a hash) + `audit_events` rows for logins
+  (success and failure, with IP), lockouts, refresh-token reuse, 2FA changes, document upload/download/
+  integrity failures, claims, decisions, appeals, withdrawals, role/active changes, account deletion.
+  A Postgres trigger makes `audit_events` append-only (no UPDATE/DELETE/TRUNCATE).
 
-- **Ingestion & Chunking:**
-  - **PyPDF2** parses text from complex legal agreements.
-  - **Regex Heading Extraction:** Scans for legal section headers and clauses (e.g., "9.1", "p)") to ensure chunks retain their legal context.
-  - **NLTK `sent_tokenize`:** Lightning-fast, statistical sentence-aware chunking that intelligently splits documents at actual punctuation marks, guaranteeing that legal sentences are never cut in half mid-word.
-  - **Local Caching:** Parsed and chunked texts are cached to a local JSON file (`documents_cache.json`) for instant recovery.
-- **Hybrid Retrieval Engine:**
-  - **Dense Search (Semantic):** Uses local `nomic-embed-text` vectors stored in **ChromaDB** to understand the *meaning* of a question.
-  - **Sparse Search (Keyword):** Uses **BM25** statistical term matching to catch exact policy limits, acronyms, and specific numbers.
-  - **Cross-Encoder Reranking:** Merges both candidate pools and scores them against the user's question using a neural `BAAI/bge-reranker-base` model. This surfaces the most relevant evidence based on actual semantic reasoning, circumventing false-positive keyword matches.
+## 5. Chat assistant pipeline
+- **Input**: `AskRequest` removes personal identifiers (Aadhaar with Verhoeff check, PAN, card with Luhn
+  check, phone, email) at the API boundary, so they never reach a model, trace, log or stored history.
+- **Precheck** (`policy_qa.precheck`): prompt-injection and off-topic refusals on the question and every
+  history turn; greetings and name memory answered without a model.
+- **Route** (`assistant.route`): one `ROUTER_MODEL` call (JSON mode) returns a standalone rewrite, an intent
+  (`policy` / `my_application` / `emi` / `small_talk` / `out_of_scope`) and EMI slots; output is validated.
+- **Tools**: policy search; the user's own applications (owner-scoped SQL on the JWT user; user-typed fields
+  quoted as inert data, names masked); deterministic EMI calculator.
+- **Ingestion** (`app/doc_pipeline.py` + `app/chunking.py` + `app/retrieval.py`): PyMuPDF column-aware text with table regions
+  removed, page classification (blank pages skipped), pdfplumber tables merged across pages and serialized
+  as row chunks, clause-aware parent/child chunks (NLTK sentence splitting for long clauses). MD source headers
+  become chunk metadata (`product`, `publisher`, `effective_date`).
+- **Index**: ChromaDB, stable collection `loan_policy_v1`; per-file manifest (`ingest_manifest.json`)
+  tracks SHA-256 hashes so only new/changed files are re-embedded on startup. A `CHUNKER_VERSION` bump
+  (currently `v4`) wipes and rebuilds all; `FORCE_REBUILD_VECTORSTORE=true` does it on demand.
+- **Retrieval**: dense (nomic-embed-text with `search_query:` / `search_document:` prefixes) + BM25,
+  compound-question decomposition, cross-encoder rerank (`cross-encoder/ms-marco-MiniLM-L-6-v2`, ~90 MB,
+  loaded at cold-start step 2), metadata filters (lender named in the question; product of the selected
+  application), relevance floor (`RERANK_MIN_SCORE`) below which the bot says the policy does not specify the answer.
+- **Generation**: top 3 passages as labelled, quoted evidence `[S1..S3]` with their publisher; the model must
+  cite inline and credit HDFC Bank vs RBI; passages and user data are treated as data, not instructions.
+  Retrieval failures return an explicit refusal.
+- **Output**: PII redaction against the full evidence text on both `/ask` and `/ask/stream` (sentence-buffered).
+- **Memory**: conversation history in `chat_messages` per (user, session); clients cannot inject turns.
+- **Budget**: per-borrower daily token budget from Groq's reported usage (router + answer), reset at
+  midnight IST; officers and admins unlimited.
 
----
+## 6. Model providers
+- Groq — `openai/gpt-oss-20b` answers; `qwen/qwen3.8-27b` rewrites and routes. 429s are retried.
+- Ollama (local) — `nomic-embed-text` embeddings only, needed at startup and for every policy question.
+- sentence-transformers (local) — cross-encoder reranker.
+- There is no automatic failover: an unavailable provider returns a clear error.
 
-## 4. Generative AI Models (LLM Layer)
-- **Primary Processing:** Fully local, offline, and private text generation via **Ollama** (e.g., `qwen3.5:2b`).
-- **Cloud Failover Routing:** Built-in ability to instantly route inference requests to the **Groq** cloud or **Hugging Face** APIs for lightning-fast speeds or heavier reasoning models (e.g., `llama3-8b-8192`), based on the frontend dropdown selection.
-- **Provider Behavior:** The frontend sends the selected provider for each request. If that provider is unavailable, the backend returns a clear provider error instead of silently switching to another model.
+## 7. Observability & evaluation
+- Langfuse: one trace per chat request — `rewrite-and-route` generation, `hybrid-retrieval` with a nested
+  `rerank` span, `llm-generation` — with token usage on each generation; all inputs/outputs pass through
+  the PII mask before export.
+- `eval/retrieval_eval.py` — recall@3 and MRR on 65 golden questions with gold pages (CI-gated).
+- `promptfooconfig.yaml` + `eval/questions.yaml` — 15 answer-level cases with a deterministic numeric
+  faithfulness check on every answer; CI gates on pass rate (`eval/check_pass_rate.py`).
+- `app/tests/` — engine unit tests and API integration tests against PostgreSQL.
 
----
-
-## 5. Deployment & State Management
-- **Containerization:** Managed via `docker-compose.yml`, including volume mounts for HuggingFace model caching and ChromaDB persistence to prevent image bloat.
-- **Short-term Memory:** Tracks conversational context (up to the last 12 messages) allowing the AI to smoothly handle follow-up pronouns and user profiling (e.g., remembering the user's name).
-
----
-
-## 6. File-By-File Flow
-
-- `app/rag.py` — Core RAG pipeline: PDF loading, NLTK sentence chunking, ChromaDB dense retrieval, BM25 keyword retrieval, CrossEncoder reranking, prompt assembly, and multi-provider LLM calls.
-- `app/main.py` — FastAPI server: `/ask`, `/ask/stream`, `/health`, SSE streaming, short status messages, audit logging, and Langfuse trace updates.
-- `app/config.py` — Loads environment variables and defaults for models, paths, history limits, Ollama, Groq, Hugging Face, vector store, and audit logs.
-- `app/audit.py` — Writes local JSONL audit events with request ID, session ID, hashed question, status, latency, source pages, and provider information.
-- `app/tracing.py` — Creates the Langfuse client. If Langfuse is not configured, the app still runs.
-- `frontend/streamlit_app.py` — Streamlit chatbot UI with model selector, streaming response consumer, chat history, and source display.
-- `data/` — Contains the two business-loan agreement PDFs used for retrieval.
-- `vectorstore/` — Local persistent ChromaDB storage plus `documents_cache.json`; ignored by Git.
-- `logs/` — Local audit log output; ignored by Git.
-- `eval/` — Manual test questions and Promptfoo test cases for the capstone quality gate.
-- `promptfooconfig.yaml` — Promptfoo configuration for calling the FastAPI `/ask` endpoint.
-- `.github/workflows/eval.yml` — GitHub Actions workflow for the RAG quality gate.
-
----
-
-## 7. Remaining Demo Proof
-
-The build is feature-complete enough for the capstone. The remaining work is proof and rehearsal:
-
-- Run the app locally and ask the 10 questions in `eval/test_questions.md`.
-- Run `npx promptfoo@latest eval` while the backend is running.
-- Confirm Docker builds if Docker will be shown in the demo.
-- Capture 2-3 screenshots: chat answer, source expander, audit log or Langfuse trace.
+## 8. Deployment
+- `docker-compose.yml`: postgres, backend (CPU-only torch, non-root, healthcheck on readiness), frontend,
+  and an opt-in `seed` profile. Ollama runs on the host. API published on loopback only.
+- `.github/workflows/eval.yml`: lint → migrations → pytest → retrieval gate → backend → promptfoo gate.

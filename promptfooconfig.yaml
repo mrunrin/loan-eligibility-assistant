@@ -1,4 +1,4 @@
-description: "LoanBot RAG Quality Gate"
+description: "HDFC Loan Bot RAG Quality Gate"
 
 providers:
   - id: "http"
@@ -7,11 +7,30 @@ providers:
       method: POST
       headers:
         Content-Type: application/json
+        # Minted for a seeded eval user in CI (see .github/workflows/eval.yml); export it locally too.
+        Authorization: "Bearer {{env.EVAL_ACCESS_TOKEN}}"
       body:
         question: "{{question}}"
-        history: []
-        session_id: "eval-session"
+        session_id: "eval-{{question | truncate(60)}}"
         model_provider: "local"
-      responseParser: "json.answer"
+      # Keep the whole JSON body so assertions can check the answer against its cited sources.
+      responseParser: "json"
+
+defaultTest:
+  assert:
+    # Numeric faithfulness: every number in the answer must appear in the cited evidence
+    # (or the question). Catches hallucinated amounts, rates and durations deterministically.
+    - type: javascript
+      metric: faithfulness
+      value: |
+        const nums = (t) => [...String(t ?? '').matchAll(/\d[\d,]*(?:\.\d+)?/g)].map(m => m[0].replace(/,/g, ''));
+        const allowed = new Set(nums(context.vars.question));
+        for (const s of output.sources || []) {
+          [s.excerpt, s.section, s.page, s.page_end, s.label].forEach(v => nums(v).forEach(n => allowed.add(n)));
+        }
+        const unsupported = nums(output.answer).filter(n => !allowed.has(n));
+        return unsupported.length === 0
+          ? true
+          : { pass: false, score: 0, reason: `Numbers not found in cited evidence: ${unsupported.join(', ')}` };
 
 tests: file://eval/questions.yaml

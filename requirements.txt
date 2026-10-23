@@ -1,19 +1,6 @@
-fastapi
-uvicorn[standard]
-streamlit
-requests
-nltk
-
-langchain
-langchain-community
-langchain-ollama
-chromadb
-pypdf
-sentence-transformers
-
-guardrails-ai
-langfuse
-langchain-chroma
-reportlab
-langchain-text-splitters
-python-dotenv
+# Full local development environment: backend + frontend + dev tools.
+# torch comes in via sentence-transformers; on CPU-only machines install it first from
+# https://download.pytorch.org/whl/cpu to avoid the multi-GB CUDA build.
+-r requirements-docker.txt
+-r requirements-frontend.txt
+-r requirements-dev.txt

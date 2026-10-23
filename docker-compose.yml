@@ -1,4 +1,19 @@
 services:
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-loanbot}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-loanbot}
+      POSTGRES_DB: ${POSTGRES_DB:-loanbot}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "${POSTGRES_USER:-loanbot}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
   backend:
     build:
       context: .
@@ -12,32 +27,40 @@ services:
       AUDIT_LOG_PATH: /app/logs/audit.jsonl
       HF_HOME: /app/hf_cache
       SENTENCE_TRANSFORMERS_HOME: /app/hf_cache/sentence_transformers
-      # Keep false for normal Docker runs because /app/vectorstore is persisted
-      # in the Docker volume below. Set true only after PDFs change, rebuild once,
-      # then set it back to false.
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-loanbot}:${POSTGRES_PASSWORD:-loanbot}@postgres:5432/${POSTGRES_DB:-loanbot}
+      UPLOAD_DIR: /app/uploads
       RERANKER_ENABLED: "true"
+      # Incremental ingestion: only new/changed files are re-embedded on startup.
+      # Set true only to wipe and rebuild all embeddings (e.g. after a chunker version bump).
       FORCE_REBUILD_VECTORSTORE: "false"
     ports:
-      - "8000:8000"
+      # Loopback only: the browser talks to Streamlit; the API is reachable from this machine
+      # for local tools (promptfoo, curl) but not from the network.
+      - "127.0.0.1:8000:8000"
     volumes:
       - vectorstore:/app/vectorstore
       - audit_logs:/app/logs
       - hf_cache:/app/hf_cache
+      - uploads:/app/uploads
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    depends_on:
+      postgres:
+        condition: service_healthy
     healthcheck:
-      test: ["CMD", "python", "-c", "import json, urllib.request; data=json.load(urllib.request.urlopen('http://localhost:8000/health', timeout=5)); raise SystemExit(0 if data.get('status') == 'ok' else 1)"]
+      # /health is 200 only when the database and the vector store are ready (Ollama is informational).
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=5)"]
       interval: 30s
       timeout: 10s
       retries: 5
-      start_period: 90s
+      start_period: 120s
 
   frontend:
     build:
       context: .
       dockerfile: Dockerfile.frontend
     environment:
-      API_URL: http://backend:8000/ask/stream
+      API_URL: http://backend:8000
     ports:
       - "8501:8501"
     depends_on:
@@ -50,7 +73,27 @@ services:
       retries: 5
       start_period: 30s
 
+  # One-off demo data load:  docker compose --profile seed run --rm seed
+  seed:
+    profiles: ["seed"]
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-loanbot}:${POSTGRES_PASSWORD:-loanbot}@postgres:5432/${POSTGRES_DB:-loanbot}
+    volumes:
+      - ./scripts:/app/scripts:ro
+      - uploads:/app/uploads
+    command: ["python", "scripts/seed_demo.py"]
+    depends_on:
+      backend:
+        condition: service_healthy
+
 volumes:
+  postgres_data:
   vectorstore:
   audit_logs:
   hf_cache:
+  uploads:

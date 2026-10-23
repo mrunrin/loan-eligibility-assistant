@@ -1,0 +1,29 @@
+[project]
+name = "hdfc-loan-portal"
+version = "0.2.0"
+description = "Loan origination portal with a grounded RAG policy assistant (FastAPI + PostgreSQL + Streamlit)."
+requires-python = ">=3.11"
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+extend-exclude = ["capstone", "migrations/versions", "graphify-out", "scripts/chunking_lab"]
+
+[tool.ruff.lint]
+# pyflakes (F), pycodestyle errors (E), import sorting (I), bugbear (B), security-relevant (S) subset
+select = ["F", "E", "I", "B", "S"]
+ignore = [
+    "B008",   # FastAPI Depends() in argument defaults is the framework idiom
+    "S101",   # asserts are used in tests and self-checks
+    "S105",   # false positives on constants named *_TOKEN / *password* messages
+    "S311",   # random is not used for security (secrets is)
+    "E501",   # long lines handled by the formatter's judgement in prompts/SQL
+]
+
+[tool.ruff.lint.per-file-ignores]
+"app/tests/**" = ["S106", "S108"]
+"scripts/seed_demo.py" = ["E402"]  # imports follow the sys.path bootstrap
+
+[tool.pytest.ini_options]
+testpaths = ["app/tests"]
+addopts = "-q"

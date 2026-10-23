@@ -1,0 +1,52 @@
+[
+  {
+    "question": "What is the minimum income required for a personal loan?",
+    "answer": "Eligibility is assessed on your net monthly income, existing obligations, and credit profile. Salaried applicants typically need a stable monthly income and a minimum credit score of 650. Self-employed individuals are evaluated on business income, ITR filings, and banking history. The exact threshold depends on the loan amount requested and tenure chosen.",
+    "basis": "Standard personal loan eligibility criteria across Indian banks; RBI KFS guidelines."
+  },
+  {
+    "question": "How quickly will I receive funds after my personal loan is approved?",
+    "answer": "Once your loan is sanctioned and all documents are verified, funds are typically disbursed to your registered bank account within 1–3 working days. Digital-first applications with e-KYC and pre-approved offers can see same-day disbursal in some cases. Delays may occur if document verification is pending.",
+    "basis": "Standard disbursal TAT across personal loan products; varies by lender."
+  },
+  {
+    "question": "Can I repay my personal loan early, and are there any prepayment charges?",
+    "answer": "Yes, you can prepay or foreclose your personal loan before the end of the tenure. For floating-rate personal loans, the RBI prohibits prepayment penalties for individual borrowers. For fixed-rate loans, a foreclosure charge (typically 2–4% of the outstanding principal) may apply after a lock-in period, as stated in your loan agreement and sanction letter. Always check your specific agreement for the applicable terms.",
+    "basis": "RBI circular on floating rate personal loans; standard fixed-rate loan agreement terms."
+  },
+  {
+    "question": "Is collateral or security required for a business loan?",
+    "answer": "Unsecured business loans do not require any collateral — approval is based on your business financials, credit score, and repayment capacity. Secured business loans (against property, machinery, or fixed deposits) typically offer higher loan amounts and lower interest rates. This portal's demo pre-qualification engine evaluates unsecured business loan eligibility.",
+    "basis": "Standard business loan product structure across Indian banks; CGTMSE scheme for unsecured MSME lending."
+  },
+  {
+    "question": "What documents do I need to apply for a business loan?",
+    "answer": "Typically required: (1) Photo ID — Aadhaar, PAN, or Passport; (2) Last 2–3 years' Income Tax Returns (ITR); (3) 6–12 months' bank statements; (4) Business registration certificate (GST certificate, Shop Act, or incorporation documents); (5) Audited financials or CA-certified P&L statement for higher loan amounts. Document requirements vary by lender and loan size.",
+    "basis": "Standard business loan documentation checklist used across HDFC, Axis, and Kotak business loan products."
+  },
+  {
+    "question": "What happens if I miss a business loan EMI payment?",
+    "answer": "Missing an EMI triggers penal interest on the overdue amount — typically 2% per month over and above the contracted rate. Persistent non-payment can result in the account being classified as an NPA (Non-Performing Asset) after 90 days, impacting your CIBIL score and making future credit difficult. Your lender will issue reminders before initiating recovery action. Contact your loan officer immediately if you anticipate a payment difficulty.",
+    "basis": "RBI guidelines on penal charges on loan accounts (2023); standard NPA classification norms."
+  },
+  {
+    "question": "How is the credit limit on my card decided?",
+    "answer": "Your credit limit is determined by the bank based on your income, existing credit obligations, credit bureau score (CIBIL/Experian), employment type, and credit history. A higher income and strong repayment record typically result in a higher limit. You can request a limit enhancement after 6–12 months of responsible usage.",
+    "basis": "Standard credit card underwriting criteria; RBI credit card directions 2022."
+  },
+  {
+    "question": "What is the minimum amount due on my credit card?",
+    "answer": "The Minimum Amount Due (MAD) is the smallest payment you can make to keep your account in good standing. It is typically 5% of the total outstanding or a fixed minimum (e.g. ₹200), whichever is higher, plus any EMI instalments and over-limit charges due. Paying only the MAD means the remaining balance carries interest at the card's annual rate (typically 36–42% p.a.). Always pay the full outstanding to avoid interest charges.",
+    "basis": "RBI credit card directions 2022; standard card member agreement terms."
+  },
+  {
+    "question": "Are there any annual or joining fees on the credit card?",
+    "answer": "Fees vary by card variant — entry-level cards often carry zero or waived annual fees on meeting a spend threshold, while premium reward or travel cards carry a joining and annual fee ranging from ₹500 to ₹10,000+. All fees must be disclosed upfront in the Key Fact Statement (KFS) before card issuance, as mandated by the RBI. Check your specific card's schedule of charges before applying.",
+    "basis": "RBI KFS mandate for credit cards; standard fee structures across HDFC, Axis, and SBI card variants."
+  },
+  {
+    "question": "Can I convert a large credit card purchase into monthly instalments (EMI)?",
+    "answer": "Yes. Most banks allow you to convert transactions above a minimum amount (usually ₹2,500–₹5,000) into EMIs at a reduced interest rate, either at the point of purchase (merchant EMI) or post-transaction through net banking or the bank's app. Tenures typically range from 3 to 24 months. A processing fee and applicable GST are charged. Pre-closure of an EMI plan may attract a foreclosure charge.",
+    "basis": "Standard EMI-on-card feature offered by HDFC, Axis, ICICI, and Kotak; RBI credit card directions 2022."
+  }
+]

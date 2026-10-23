@@ -12,6 +12,11 @@ COPY requirements-frontend.txt .
 RUN pip install --no-cache-dir --default-timeout=300 --retries=10 -r requirements-frontend.txt
 
 COPY frontend ./frontend
+# Streamlit reads .streamlit/config.toml from the working directory
+COPY .streamlit ./.streamlit
+
+RUN adduser --disabled-password --gecos "" appuser && chown -R appuser /app
+USER appuser
 
 EXPOSE 8501
 
