@@ -8,6 +8,68 @@ are noted where they differ.
 
 ---
 
+## Quick start — copy and paste
+
+First install **Python 3.13**, **PostgreSQL**, **Ollama** and **Git** (step 1), and create the `loanbot`
+database (step 3). Then run these in **PowerShell**, one block at a time.
+
+**A. Get the code and install the libraries (once, ~10–20 min)**
+
+```powershell
+mkdir C:\projects -Force; cd C:\projects
+git clone https://github.com/mrunrin/loan-eligibility-assistant.git
+cd loan-eligibility-assistant
+python -m venv capstone
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy RemoteSigned
+.\capstone\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+python -m pip install --index-url https://download.pytorch.org/whl/cpu torch==2.13.0
+python -m pip install -r requirements.txt
+python -m pip check
+```
+
+**B. Configure (once)** — create `.env`, then open it and set `JWT_SECRET_KEY` (printed by the second line),
+`GROQ_API_KEY`, and `DEV_EMAIL_VERIFY=true` if you are not setting up Gmail SMTP:
+
+```powershell
+copy .env.example .env
+python -c "import secrets; print(secrets.token_urlsafe(64))"
+notepad .env
+```
+
+**C. Prepare the database, model and demo data (once)**
+
+```powershell
+ollama pull nomic-embed-text
+python -m alembic upgrade head
+python scripts/seed_demo.py
+```
+
+Copy the demo passwords that `seed_demo.py` prints.
+
+**D. Start the backend** — window 1 (first start takes 5–10 min; wait for `[4/4] Server ready`):
+
+```powershell
+cd C:\projects\loan-eligibility-assistant
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy RemoteSigned
+.\capstone\Scripts\Activate.ps1
+python -m uvicorn app.main:app --port 8000
+```
+
+**E. Start the frontend** — window 2:
+
+```powershell
+cd C:\projects\loan-eligibility-assistant
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy RemoteSigned
+.\capstone\Scripts\Activate.ps1
+python -m streamlit run frontend/streamlit_app.py
+```
+
+Open **http://localhost:8501**. Next time, only blocks D and E are needed (with PostgreSQL and Ollama running).
+If anything fails, look it up in [Troubleshooting](#troubleshooting); the numbered sections below explain each step.
+
+---
+
 ## 0. What you get from git, and what you create yourself
 
 | Comes with the repository | You create or download locally (never committed) |
@@ -28,7 +90,8 @@ are noted where they differ.
 
 | Tool | Why | Get it |
 |---|---|---|
-| Python **3.11+** | Backend and frontend | https://www.python.org/downloads/ (tick "Add to PATH") |
+| Python **3.13** (tested; 3.11–3.13 supported) | Backend and frontend | https://www.python.org/downloads/ — tick **"Add python.exe to PATH"** in the installer. Avoid 3.14+: some packages have no ready-made wheels for it yet |
+| Microsoft Visual C++ Redistributable (Windows) | PyTorch needs it to load | https://aka.ms/vs/17/release/vc_redist.x64.exe (most PCs already have it) |
 | PostgreSQL **15+** | Application database | https://www.postgresql.org/download/ **or** Docker (step 3, option B) |
 | Ollama | Local embeddings for document search | https://ollama.com/download |
 | Git | Clone the repository | https://git-scm.com/downloads |
@@ -36,29 +99,63 @@ are noted where they differ.
 | Authenticator app | 2FA for officer/admin accounts | Google Authenticator, Microsoft Authenticator or Authy |
 | Node.js 20 | *Optional* — only for the Promptfoo answer evaluation | https://nodejs.org |
 
-Hardware: ~7 GB free RAM is enough. No GPU needed.
+Hardware: ~7 GB free RAM is enough. No GPU needed. Disk: about 3 GB for the Python environment plus
+~0.5 GB for Ollama's embedding model. Internet is needed for the first setup and the first backend start.
+
+**After installing, close and reopen PowerShell** so the new `python`, `psql`, `ollama` and `git` commands are
+found. Check:
+
+```powershell
+python --version      # must print Python 3.11, 3.12 or 3.13
+git --version
+ollama --version
+```
+
+If `python` opens the Microsoft Store or is "not recognized", reinstall Python with "Add to PATH" ticked, or use
+`py -3.13` instead of `python` in step 2.
 
 ---
 
 ## 2. Clone and create the Python environment
 
+**Clone into a short folder path**, for example `C:\projects`. Windows limits file paths to 260 characters by
+default, and PyTorch contains deeply nested files: a long project path (deep inside Documents, OneDrive or a
+temp folder) makes the install fail with `OSError: [Errno 2] No such file or directory … Long Path support`.
+
 ```powershell
-git clone <repository-url>
-cd "Capstone Project"
+mkdir C:\projects
+cd C:\projects
+git clone https://github.com/mrunrin/loan-eligibility-assistant.git
+cd loan-eligibility-assistant
 
 python -m venv capstone
 Set-ExecutionPolicy -Scope Process -ExecutionPolicy RemoteSigned   # allows the activate script in this window
 .\capstone\Scripts\Activate.ps1                                     # macOS/Linux: source capstone/bin/activate
 ```
 
-Install the CPU-only PyTorch first (avoids a multi-GB GPU download), then everything else:
+Your prompt now starts with `(capstone)`. Install in this order — **upgrade pip, then the CPU-only PyTorch,
+then everything else**. Installing PyTorch first stops pip from pulling the multi-GB GPU build:
 
 ```powershell
+python -m pip install --upgrade pip
 python -m pip install --index-url https://download.pytorch.org/whl/cpu torch==2.13.0
 python -m pip install -r requirements.txt
+python -m pip check
 ```
 
-Every later command in this manual assumes the virtual environment is active — your prompt starts with `(capstone)`.
+This downloads about 1–2 GB and can take 10–20 minutes. `pip check` should print `No broken requirements found.`
+Quick test that the key libraries load:
+
+```powershell
+python -c "import torch, fastapi, streamlit, chromadb, sentence_transformers; print('OK', torch.__version__)"
+```
+
+It should print `OK 2.13.0+cpu`.
+
+Every later command in this manual assumes the virtual environment is active — your prompt starts with
+`(capstone)`. In every new PowerShell window, `cd` into the project folder and run
+`.\capstone\Scripts\Activate.ps1` again (with the `Set-ExecutionPolicy` line first if Windows blocks it).
+Always use `python -m pip …`, never plain `pip`, so packages go into this environment.
 
 ---
 
@@ -67,8 +164,9 @@ Every later command in this manual assumes the virtual environment is active —
 The app expects a user `loanbot` with password `loanbot` and a database `loanbot` on `localhost:5432`
 (you can change this later in `DATABASE_URL`).
 
-**Option A — PostgreSQL installed on your machine.** Open "SQL Shell (psql)" (or any terminal with `psql`)
-as the `postgres` superuser and run:
+**Option A — PostgreSQL installed on your machine.** During installation, remember the password you set for
+the `postgres` user and keep the default port **5432**. Then open **"SQL Shell (psql)"** from the Start menu
+(press Enter to accept the defaults, then type the `postgres` password) and run:
 
 ```sql
 CREATE ROLE loanbot LOGIN PASSWORD 'loanbot';
@@ -228,6 +326,13 @@ if requirements changed; migrations apply themselves on backend start.
 | Cannot log in after registering | Verify the email first, or set `DEV_EMAIL_VERIFY=true` (with SMTP empty) and restart the backend |
 | "Too many failed sign-in attempts" | Wait 15 minutes; failed logins are counted per account and per network |
 | `Activate.ps1 cannot be loaded because running scripts is disabled` | Run the `Set-ExecutionPolicy -Scope Process …` line from step 2 in that window |
+| `OSError: [Errno 2] No such file or directory … Windows Long Path support` during `pip install` | The project path is too long. Move/clone the project to a short path such as `C:\projects\loan-eligibility-assistant`, delete the `capstone` folder and repeat step 2. (Alternative: enable long paths — admin PowerShell: `New-ItemProperty -Path HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem -Name LongPathsEnabled -Value 1 -PropertyType DWORD -Force`, then reboot) |
+| `ModuleNotFoundError` when starting the backend or frontend | The virtual environment is not active in that window — run `.\capstone\Scripts\Activate.ps1`; check the prompt starts with `(capstone)` |
+| `pip` downloads a huge `torch` (2 GB+) with CUDA | PyTorch was not installed first; run `python -m pip uninstall torch`, then the CPU command from step 2 |
+| `OSError: [WinError 126] … torch … .dll` | Install the Microsoft Visual C++ Redistributable (step 1), then reopen PowerShell |
+| `No matching distribution found for …` during install | Your Python is too new or too old — use Python 3.13 and recreate the `capstone` folder |
+| `'psql' is not recognized` | Use "SQL Shell (psql)" from the Start menu, or Option B (Docker) in step 3 |
+| `ollama` is not recognized | Reopen PowerShell after installing Ollama; or start the Ollama app from the Start menu |
 | Port 8000 or 8501 already in use | Stop the other process, or start the backend with `--port 8001` and, in the frontend window, run `$env:API_URL = "http://localhost:8001"` before starting Streamlit (the frontend reads `API_URL` from the environment, not from `.env`) |
 
 ---
