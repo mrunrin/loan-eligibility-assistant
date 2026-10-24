@@ -14,11 +14,13 @@ Student capstone demo; not an official HDFC Bank service.
   email verification, FAQ.
 - `frontend/pages/` — Register, My Applications, Apply (product picker + 4-step form with required-document
   checklist), Application Detail (rule breakdown, authorised document preview (image / PDF) and download, appeal, withdraw, officer
-  decision), Officer Queue (claim / take over → decide), Admin Dashboard, AI Loan Assistant, Security (2FA, account deletion).
+  decision), Officer Queue (claim / take over → decide), Admin Dashboard (stats, roles, activate/deactivate;
+  other admins shown as protected), AI Loan Assistant, Security (2FA, account deletion).
 - `frontend/nav.py` — the single place for `API_URL`, the authenticated `api()` helper (bearer token,
   forwards the client IP, one refresh-and-retry on 401, backend-down handling), page/role guards, sidebar,
   logout and the 5-minute browser idle timer.
-- Tokens live in `st.session_state` and in JS-readable cookies (to survive a page refresh); see Known Limitations in the README.
+- Tokens live in `st.session_state`, plus JS-readable cookies as a best-effort restore; a page refresh usually
+  returns to the login page (kept on purpose). See Known Limitations in the README.
 
 ## 2. Backend (FastAPI)
 - Routers: `auth` (register/login/refresh/logout/verify/delete), `mfa` (TOTP), `applications`
@@ -67,6 +69,9 @@ wiped and rebuilt once automatically.
   an HMAC, burned after repeated failures.
 - TOTP secrets Fernet-encrypted at rest; codes cannot be replayed; enabling 2FA uses a pending secret so
   `/2fa/setup` can never switch existing 2FA off. 2FA is mandatory for officers and admins.
+- Admin actions: no super-admin. An admin cannot change the role of, or deactivate, themselves (400) or another
+  admin (403); promoting a user to admin and re-activating an inactive admin are allowed. A deactivated user is
+  rejected on their next request.
 - Uploads: extension + magic-byte check, streamed 10 MB cap, draft-only, base-name sanitisation, orphan
   cleanup on failure, SHA-256 integrity check on download; downloads only for the owner or officers/admins.
 - Audit: request-level JSONL log (question stored only as a hash) + `audit_events` rows for logins

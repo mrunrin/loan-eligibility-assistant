@@ -274,10 +274,11 @@ Open **http://localhost:8501**.
 | **New borrower** | Register → verify email (code by email, or the dev-mode button) → log in → Apply (pick a product, fill 4 steps, upload the required documents) → see the pre-qualification result → ask the AI Loan Assistant "why was my application rejected?" or "EMI for 5 lakh at 12% for 3 years" |
 | **Seeded borrower** | Log in with a borrower from `scripts/seed_data/users.json`; their applications are already there |
 | **Officer** | Log in → scan the QR code with your authenticator app (first login only) → Officer Queue → Start review → approve or reject with a reason |
-| **Admin** | Same 2FA enrollment → Admin Dashboard: statistics, users, roles, activation |
+| **Admin** | Same 2FA enrollment → Admin Dashboard: statistics, users, role changes, Activate/Deactivate for borrowers and officers. Other admins show "Admin (protected)" and cannot be changed from the dashboard |
 
 Good to know:
-- The browser logs you out after 5 minutes without activity.
+- The browser logs you out after 5 minutes without activity. Refreshing the page also takes you back to the login page.
+- Open a document on Application Detail to preview it in the page (PDF or image). Seeded documents are blank stub PDFs.
 - 5 wrong passwords lock the account for 15 minutes (longer if it happens again).
 - Borrowers have a daily AI limit of 10,000 tokens; officers and admins are unlimited.
 

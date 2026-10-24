@@ -234,8 +234,10 @@ Open before the final demo:
 
 ## Known limitations
 
-- Streamlit keeps JWTs in session state and in browser cookies that JavaScript can read (needed to survive a
-  page refresh); a production frontend would use httpOnly cookies through a backend-for-frontend.
+- Refreshing the browser page usually returns you to the login page (kept on purpose, like a bank site).
+  Streamlit keeps JWTs in session state and also writes them to browser cookies that JavaScript can read, as a
+  best-effort session restore that rarely succeeds; a production frontend would use httpOnly cookies through a
+  backend-for-frontend.
 - Rate-limit counters, per-IP failed-login counters and the daily token budget live in process memory:
   one backend worker only, and a restart resets them. Use Redis or a database table before scaling out.
 - Refresh tokens are one active session per user: logging in on a second device ends the first session.
