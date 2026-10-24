@@ -1,85 +1,34 @@
 # Golden retrieval set: each question lists the page(s) whose text answers it.
-# Used by eval/retrieval_eval.py to compute recall@5 and MRR for the hybrid retriever.
-# P = HDFC Personal Loan Agreement (PL_Agreement.pdf)
-# F = HDFC FAQ Credit Card and Debit Card (FAQMDCreditCardandDebitCard.pdf)
-# B = HDFC Business Loans Terms and Conditions (personal_business_loan_agreement.pdf)
-# C = HDFC Credit Card Cardmember Agreement (card-member-agreement-29-10-2019.pdf)
+# Used by eval/retrieval_eval.py to compute recall@3 and MRR for the hybrid retriever.
+# Markdown chunks are always page 1, so a .md gold means "any chunk of that file".
+# Graded: 2 easy (direct lookup), 3 medium (one hop or paraphrase), 4 hard (a distractor document
+# shares the vocabulary or numbers; the comment names it and what a hit proves).
+# The previous 65-question set covered only the 4 original PDFs.
 documents:
-  P: "PL_Agreement.pdf"
-  F: "FAQMDCreditCardandDebitCard.pdf"
-  B: "personal_business_loan_agreement.pdf"
-  C: "card-member-agreement-29-10-2019.pdf"
+  R: "rbi_regulations.md"
+  PM: "hdfc_personal_loan.md"
+  BM: "hdfc_business_loan.md"
+  M: "cc-mitc.pdf"
 
 questions:
-  # ── Personal Loan Agreement (P) ──────────────────────────────────────────
-  - {q: "Who are the parties to the HDFC Bank personal loan agreement?", gold: [[P, 1]]}
-  - {q: "How is interest compounded under the HDFC personal loan agreement?", gold: [[P, 1]]}
-  - {q: "What repayment modes are accepted under the HDFC personal loan agreement?", gold: [[P, 1]]}
-  - {q: "Under what conditions can HDFC Bank demand repayment within 24 hours on a personal loan?", gold: [[P, 1]]}
-  - {q: "Are PDC instructions to HDFC Bank irrevocable under the personal loan agreement?", gold: [[P, 1]]}
-  - {q: "Are processing or service charges refundable under the HDFC personal loan agreement?", gold: [[P, 1]]}
-  - {q: "Within how many hours must a borrower pay after HDFC Bank calls in the personal loan under Clause 8?", gold: [[P, 1], [P, 2]]}
-  - {q: "Within how many days must a borrower query an HDFC Bank statement before it is deemed accepted?", gold: [[P, 2]]}
-  - {q: "Can a borrower partially prepay an HDFC personal loan?", gold: [[P, 2]]}
-  - {q: "After how many EMIs is a borrower permitted to prepay the HDFC personal loan?", gold: [[P, 2]]}
-  - {q: "Can HDFC Bank present post-dated cheques despite a stop payment instruction from the borrower?", gold: [[P, 2]]}
-  - {q: "How many days' written notice is required before prepaying an HDFC personal loan?", gold: [[P, 2]]}
-  - {q: "Within how many days may a borrower cancel an HDFC personal loan after disbursement?", gold: [[P, 2]]}
-  - {q: "Can HDFC Bank sell or assign the personal loan to a third party without the borrower's consent?", gold: [[P, 2]]}
-  - {q: "Which city's courts have jurisdiction over disputes under the HDFC personal loan agreement?", gold: [[P, 3]]}
-  - {q: "Is liability joint and several when there are multiple borrowers under the HDFC personal loan?", gold: [[P, 3]]}
-  - {q: "Can HDFC Bank disclose personal loan borrower information to CIBIL?", gold: [[P, 3]]}
+  # ── Easy ─────────────────────────────────────────────────────────────────
+  - {q: "What is the minimum monthly net income needed to apply for an HDFC personal loan?", gold: [[PM, 1]]}
+  - {q: "What is the repayment tenure range for an HDFC Business Loan?", gold: [[BM, 1]]}
 
-  # ── FAQ on RBI Master Direction – Credit and Debit Cards (F) ─────────────
-  - {q: "What must a card-issuer do within seven working days if no consent is received for an unsolicited credit card?", gold: [[F, 1]]}
-  - {q: "Can banks issue debit cards to cash credit or loan accounts?", gold: [[F, 1]]}
-  - {q: "After how many days of non-activation must a card-issuer seek OTP-based consent from the cardholder?", gold: [[F, 2]]}
-  - {q: "Does calling customer care for general reasons count as credit card usage under para 8(b) of the RBI Master Direction?", gold: [[F, 2]]}
-  - {q: "Whose consent is required for activation and closure of a business credit card?", gold: [[F, 2]]}
-  - {q: "Is late payment fee on a credit card levied on the total amount due or only on the outstanding amount?", gold: [[F, 2], [F, 3]]}
-  - {q: "Can a card-issuer capitalize unpaid taxes or levies as additional interest on a credit card?", gold: [[F, 3]]}
-  - {q: "From what date does the RBI restriction on capitalizing unpaid taxes on credit cards apply?", gold: [[F, 3]]}
-  - {q: "How is a post-billing refund treated when the cardholder has not yet made payment under Query 8 Scenario 2?", gold: [[F, 3]]}
-  - {q: "When a refund arrives after the cardholder has already paid their credit card bill, what consent is required?", gold: [[F, 4]]}
-  - {q: "Can a credit cardholder modify their billing cycle, and through which channels?", gold: [[F, 4], [F, 5]]}
-  - {q: "Can a card-issuer charge overlimit fees without the cardholder's explicit prior consent?", gold: [[F, 5]]}
-  - {q: "Can interest or charges be counted when computing a cardholder's credit limit usage for overlimit charges?", gold: [[F, 5]]}
-  - {q: "Who bears liability for credit card dues — the principal cardholder or add-on cardholders?", gold: [[F, 5]]}
-  - {q: "Has RBI prescribed mandatory insurance cover on debit or credit cards?", gold: [[F, 5]]}
-  - {q: "Can a co-branding partner access or store cardholder transaction data?", gold: [[F, 6]]}
-  - {q: "Within how many working days must a credit card closure request be honored by the card-issuer?", gold: [[F, 6]]}
-  - {q: "What is the procedure for filing a complaint with the RBI Ombudsman against a credit card issuer?", gold: [[F, 7]]}
+  # ── Medium ───────────────────────────────────────────────────────────────
+  # The MITC table of contents (page 1) also names "Interest free (grace Period)" but has no answer.
+  - {q: "How long can the interest-free credit period on an HDFC credit card be?", gold: [[M, 10], [M, 33]]}
+  # Paraphrase: no "property documents", "release" or "compensation" in the question.
+  - {q: "My loan is fully repaid but the lender still has not returned my original house papers after a month. What do they owe me?", gold: [[R, 1]]}
+  # Paraphrase of the non-utilisation charge.
+  - {q: "What happens if I use less than 30% of my HDFC Dropline Overdraft limit?", gold: [[BM, 1]]}
 
-  # ── Business Loans Terms and Conditions (B) ──────────────────────────────
-  - {q: "Within how many days from issuance of the disbursement instrument may HDFC Bank cancel a business loan if not utilized?", gold: [[B, 3]]}
-  - {q: "How is interest calculated on the HDFC business loan — on daily balance or monthly average?", gold: [[B, 3]]}
-  - {q: "When a business loan repayment due date falls on a non-business day, when must payment be made?", gold: [[B, 3]]}
-  - {q: "When is a business loan payment deemed received by HDFC Bank?", gold: [[B, 3]]}
-  - {q: "What is the order of payment appropriation under the HDFC business loan terms?", gold: [[B, 4]]}
-  - {q: "Within how many hours must a borrower pay after HDFC Bank calls in the business loan?", gold: [[B, 4]]}
-  - {q: "After how many EMIs can a borrower prepay the HDFC business loan?", gold: [[B, 4]]}
-  - {q: "How many days' written notice is required before prepaying an HDFC business loan?", gold: [[B, 4]]}
-  - {q: "What are the negative covenants restricting a business loan borrower from declaring dividends?", gold: [[B, 5]]}
-  - {q: "What happens to the outstanding balance when an event of default occurs under the HDFC business loan?", gold: [[B, 5]]}
-  - {q: "What lien and set-off rights does HDFC Bank hold over a business loan borrower's accounts?", gold: [[B, 5]]}
-  - {q: "Can HDFC Bank assign or securitise a business loan without the borrower's consent?", gold: [[B, 6]]}
-  - {q: "What are the prepayment charges for an HDFC business loan repaid between 7 and 24 months?", gold: [[B, 7]]}
-  - {q: "What are the cheque or ECS return charges under the HDFC business loan schedule?", gold: [[B, 7]]}
-  - {q: "What is the default interest rate for overdue EMIs under the HDFC business loan schedule?", gold: [[B, 7]]}
-
-  # ── Credit Card Cardmember Agreement (C) ─────────────────────────────────
-  - {q: "Does the HDFC credit card credit limit include applicable interest and charges?", gold: [[C, 2]]}
-  - {q: "What are the overlimit charges on an HDFC credit card?", gold: [[C, 3]]}
-  - {q: "What is the maximum Balance Transfer amount as a percentage of available credit limit on an HDFC credit card?", gold: [[C, 3]]}
-  - {q: "What is the minimum Balance Transfer amount accepted on an HDFC credit card?", gold: [[C, 3]]}
-  - {q: "For how many months does the discounted interest rate apply after an HDFC credit card Balance Transfer?", gold: [[C, 3], [C, 4]]}
-  - {q: "To whom can an HDFC credit card add-on card be issued?", gold: [[C, 5]]}
-  - {q: "Can an HDFC retail credit card be used for business working capital purposes?", gold: [[C, 7]]}
-  - {q: "Within how many days must an HDFC credit cardholder report unauthorized transactions on their statement?", gold: [[C, 7]]}
-  - {q: "What is the minimum amount due formula for HDFC credit card repayment effective June 2025?", gold: [[C, 9]]}
-  - {q: "How many days' notice must a cardholder give to prevent automatic renewal of an HDFC credit card?", gold: [[C, 14]]}
-  - {q: "Under what circumstances is an HDFC credit card automatically cancelled?", gold: [[C, 14]]}
-  - {q: "What happens to reward points when an HDFC credit card account is cancelled or suspended?", gold: [[C, 16]]}
-  - {q: "In which city is arbitration held under the HDFC credit card cardmember agreement?", gold: [[C, 17]]}
-  - {q: "What is the charge for accompanying guests under the Priority Pass programme on an HDFC credit card?", gold: [[C, 18]]}
-  - {q: "Which insurance covers are available only after card activation and not on issuance?", gold: [[C, 18]]}
+  # ── Hard ─────────────────────────────────────────────────────────────────
+  # Distractor: hdfc_personal_loan.md has the same 4%/3%/2% foreclosure table. Proves product disambiguation.
+  - {q: "Is there a foreclosure charge on a ₹30 lakh fixed-rate HDFC business loan taken by a micro enterprise?", gold: [[BM, 1]]}
+  # Distractor: the cardmember agreement uses the legacy term "penal interest". Proves the regulator rule wins.
+  - {q: "Can a lender charge interest on top of penal interest?", gold: [[R, 1]]}
+  # Distractor: rbi_regulations.md and the RBI FAQ PDF give the generic 30-day / OTP rule. Proves the bank-specific term is found.
+  - {q: "On which day after the card open date does HDFC close a credit card that was never activated or used?", gold: [[M, 17], [M, 39]]}
+  # Distractor: the MITC calls itself a "Key Fact Statement" (pages 1-2). Proves the exclusion clause is found.
+  - {q: "Does the RBI Key Facts Statement requirement for loans apply to credit card dues?", gold: [[R, 1]]}

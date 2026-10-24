@@ -10,17 +10,17 @@ WORKDIR /app
 
 COPY requirements-docker.txt constraints.txt ./
 
-# Hosted embeddings + rerank need no torch. For RERANKER_PROVIDER=local, uncomment this and sentence-transformers in requirements-docker.txt.
-# RUN pip install --no-cache-dir --default-timeout=300 --retries=10 --index-url https://download.pytorch.org/whl/cpu torch==2.13.0
+# No local models: embeddings (Jina), rerank (Cohere) and answers (Groq) are hosted APIs.
 RUN pip install --no-cache-dir --default-timeout=300 --retries=10 -r requirements-docker.txt -c constraints.txt
-RUN python -c "import nltk; nltk.download('punkt_tab')"
+# download_dir: without it NLTK saves to /root/nltk_data (the folder below does not exist yet), invisible to appuser.
+RUN python -c "import nltk; nltk.download('punkt_tab', download_dir='/usr/local/share/nltk_data')"
 
 COPY app ./app
 COPY data ./data
 COPY alembic.ini .
 COPY migrations ./migrations
 
-RUN mkdir -p /app/uploads /app/vectorstore /app/logs /app/hf_cache /usr/local/share/nltk_data
+RUN mkdir -p /app/uploads /app/vectorstore /app/logs /usr/local/share/nltk_data
 
 RUN adduser --disabled-password --gecos "" appuser \
     && chown -R appuser /app \

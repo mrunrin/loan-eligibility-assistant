@@ -4,7 +4,7 @@ Retrieval quality gate: recall@k and MRR of the hybrid retriever on eval/golden_
 A question is a hit when any of the top-k evidence chunks comes from a gold (document, page).
 Cross-page chunks count for every page in their page_start..page_end range.
 
-Usage:  python eval/retrieval_eval.py            (needs Ollama for query embeddings)
+Usage:  python eval/retrieval_eval.py            (needs JINA_API_KEY and COHERE_API_KEY)
 Env:    RECALL_THRESHOLD (default 0.80) — exit code 1 when recall@k falls below it.
 """
 

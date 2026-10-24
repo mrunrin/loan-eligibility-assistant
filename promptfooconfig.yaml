@@ -12,7 +12,6 @@ providers:
       body:
         question: "{{question}}"
         session_id: "eval-{{question | truncate(60)}}"
-        model_provider: "local"
       # Keep the whole JSON body so assertions can check the answer against its cited sources.
       responseParser: "json"
 

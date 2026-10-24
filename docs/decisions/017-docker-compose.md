@@ -5,7 +5,7 @@
 
 ## Context
 
-The application has four runtime components: PostgreSQL (data), Chroma (vectors, in-process), FastAPI backend, and Streamlit frontend, plus Ollama for embeddings on the host. These must start in the correct order, share a network, and be reproducible on any machine with Docker installed. See [ADR-000](000-constraints.md).
+The application has four runtime components: PostgreSQL (data), Chroma (vectors, in-process), FastAPI backend, and Streamlit frontend. Embeddings and reranking are hosted APIs ([ADR-020](020-hosted-embeddings-rerank.md)). These must start in the correct order, share a network, and be reproducible on any machine with Docker installed. See [ADR-000](000-constraints.md).
 
 ## Decision
 
@@ -20,7 +20,7 @@ Use **Docker Compose** (`docker-compose.yml`) as the sole local orchestrator.
 | `frontend` | `./Dockerfile.frontend` | `backend` healthy |
 | `seed` (profile `seed`, run on demand) | `./Dockerfile` | `backend` healthy |
 
-Chroma runs **in-process** inside the backend container — no separate service (see [ADR-010](010-chroma.md)). Ollama runs on the host and is reached at `http://host.docker.internal:11434`. The API is published on `127.0.0.1:8000` only; the browser talks to Streamlit on port 8501.
+Chroma runs **in-process** inside the backend container — no separate service (see [ADR-010](010-chroma.md)). The API is published on `127.0.0.1:8000` only; the browser talks to Streamlit on port 8501.
 
 ## Why Docker Compose, not bare Docker / shell scripts
 
@@ -46,7 +46,6 @@ Kubernetes is the right orchestrator for multi-replica production deployments. F
 | `uploads` | Uploaded documents — survives container restarts |
 | `vectorstore` | ChromaDB persistent storage and the ingest manifest |
 | `audit_logs` | `audit.jsonl` request log |
-| `hf_cache` | Downloaded cross-encoder model, so it is fetched only once |
 
 ## Consequences
 

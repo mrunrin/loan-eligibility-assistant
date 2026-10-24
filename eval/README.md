@@ -4,10 +4,10 @@ Two automated gates plus a manual review set.
 
 ## Files
 
-- `golden_retrieval.yaml` — 65 questions grounded in the 4 HDFC PDFs (personal loan, business loan, credit card × 2), each with the gold (document, page) that answers it.
+- `golden_retrieval.yaml` — 9 graded questions (2 easy, 3 medium, 4 hard) over the RBI and HDFC markdown files and the credit-card MITC, each with the gold (document, page) that answers it. Hard questions have a distractor document that shares their vocabulary.
 - `retrieval_eval.py` — runs the real hybrid retriever and reports **recall@3** and **MRR** (k is
   `FINAL_EVIDENCE_K`, the number of passages the answer model sees); exits 1 below
-  `RECALL_THRESHOLD` (default 0.80). Needs Ollama for query embeddings; no LLM calls.
+  `RECALL_THRESHOLD` (default 0.80). Needs `JINA_API_KEY` and `COHERE_API_KEY`; no LLM calls.
 - `questions.yaml` — 15 Promptfoo answer-level cases (facts, missing-policy handling, lender filtering,
   guardrails, startup cold-start regression). Every case also runs the numeric-faithfulness check
   defined in `promptfooconfig.yaml`: each number in the answer must appear in the cited evidence or
@@ -22,7 +22,7 @@ Two automated gates plus a manual review set.
 python eval/retrieval_eval.py
 ```
 
-Start the backend, log in as any verified user to get an access token, then:
+Start the backend, log in as an officer or admin to get an access token (see the token budget note below), then:
 
 ```powershell
 $env:EVAL_ACCESS_TOKEN = "<access token>"
@@ -41,7 +41,7 @@ Each call counts against the eval user's daily token budget; use an officer or a
   outside the evidence, lender-specific questions cite only that lender, PII in the question is removed
   (with a notice) rather than refused, and prompt injection and off-topic requests are refused.
 
-After a `CHUNKER_VERSION` bump (v4 added nomic task prefixes and chunk metadata), re-run the retrieval eval
+After a `CHUNKER_VERSION` bump (v4 added query/passage task prefixes and chunk metadata), re-run the retrieval eval
 and compare recall@3 / MRR with the previous run.
 
 These sets are small. They catch regressions; they do not prove production-grade accuracy.

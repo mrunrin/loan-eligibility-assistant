@@ -21,16 +21,14 @@ services:
     env_file:
       - .env
     environment:
-      OLLAMA_BASE_URL: http://host.docker.internal:11434
       VECTORSTORE_PATH: /app/vectorstore
       AUDIT_LOG_PATH: /app/logs/audit.jsonl
-      HF_HOME: /app/hf_cache
-      SENTENCE_TRANSFORMERS_HOME: /app/hf_cache/sentence_transformers
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-loanbot}:${POSTGRES_PASSWORD:-loanbot}@postgres:5432/${POSTGRES_DB:-loanbot}
       UPLOAD_DIR: /app/uploads
+      # Fixed here on purpose, not read from .env: reranking always on, and users never trigger a rebuild.
       RERANKER_ENABLED: "true"
       # Incremental ingestion: only new/changed files are re-embedded on startup.
-      # Set true only to wipe and rebuild all embeddings (e.g. after a chunker version bump).
+      # The maintainer sets true here only to wipe and rebuild all embeddings, then back to false.
       FORCE_REBUILD_VECTORSTORE: "false"
     ports:
       # Loopback only: the browser talks to Streamlit; the API is reachable from this machine
@@ -39,20 +37,17 @@ services:
     volumes:
       - vectorstore:/app/vectorstore
       - audit_logs:/app/logs
-      - hf_cache:/app/hf_cache
       - uploads:/app/uploads
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     depends_on:
       postgres:
         condition: service_healthy
     healthcheck:
-      # /health is 200 only when the database and the vector store are ready (Ollama is informational).
+      # /health is 200 only when the database and the vector store are ready.
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=5)"]
       interval: 30s
       timeout: 10s
       retries: 5
-      # The first start embeds the whole knowledge base (~8 min on a laptop CPU); failures in this
+      # The first start embeds the whole knowledge base through the Jina API; failures in this
       # window don't count, and the service turns healthy on the first passing check.
       start_period: 900s
 
@@ -96,5 +91,4 @@ volumes:
   postgres_data:
   vectorstore:
   audit_logs:
-  hf_cache:
   uploads:

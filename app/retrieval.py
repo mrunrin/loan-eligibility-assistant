@@ -1,4 +1,4 @@
-"""Search index over the policy corpus: incremental ingestion, hybrid dense + BM25 search, cross-encoder rerank."""
+"""Search index over the policy corpus: incremental ingestion, hybrid dense + BM25 search, Cohere rerank."""
 
 import hashlib
 import json
@@ -15,15 +15,6 @@ import requests
 from langchain_chroma import Chroma
 from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
-from langchain_ollama import OllamaEmbeddings
-
-try:
-    # Only RERANKER_PROVIDER=local needs this (and torch); the Docker image leaves both out.
-    from sentence_transformers import CrossEncoder
-    _CROSS_ENCODER_AVAILABLE = True
-except ImportError:
-    CrossEncoder = None  # type: ignore[assignment, misc]
-    _CROSS_ENCODER_AVAILABLE = False
 
 from app.chunking import (
     CHUNKER_VERSION,
@@ -37,12 +28,9 @@ from app.chunking import (
 from app.config import (
     COHERE_API_KEY,
     EMBEDDING_MODEL,
-    EMBEDDING_PROVIDER,
     JINA_API_KEY,
     KNOWN_LENDER_NAMES,
-    OLLAMA_BASE_URL,
     RERANKER_MODEL,
-    RERANKER_PROVIDER,
     VECTORSTORE_PATH,
 )
 
@@ -53,7 +41,6 @@ _child_documents: list[Document] = []
 _bm25_index: dict = {}
 _lender_files: dict[str, set[str]] = {}
 _vectorstore_lock = threading.Lock()
-_reranker_lock = threading.Lock()
 COLLECTION_PREFIX = "loan_policy_"
 # Stable collection name: incremental ingestion appends to this instead of creating a new one.
 STABLE_COLLECTION = f"{COLLECTION_PREFIX}v1"
@@ -62,7 +49,6 @@ DENSE_CANDIDATE_K = 20
 BM25_CANDIDATE_K = 20
 FINAL_EVIDENCE_K = 3
 RERANKER_ENABLED = os.getenv("RERANKER_ENABLED", "true").lower() in {"1", "true", "yes"}
-_reranker: "CrossEncoder | None" = None  # quoted: CrossEncoder is None when sentence-transformers is absent
 _API_TIMEOUT = 30
 _API_RETRIES = 4
 _COMPOUND_SPLIT_RE = re.compile(
@@ -77,16 +63,6 @@ TOKEN_RE = re.compile(r"\d+(?:\.\d+)*|[a-z]+")
 
 class RetrievalError(RuntimeError):
     """Raised when the vector store or embeddings are unavailable."""
-
-
-class NomicEmbeddings(OllamaEmbeddings):
-    """nomic-embed-text is trained with task prefixes; without them query and document vectors are misaligned."""
-
-    def embed_documents(self, texts: list[str]) -> list[list[float]]:
-        return super().embed_documents([f"search_document: {t}" for t in texts])
-
-    def embed_query(self, text: str) -> list[float]:
-        return super().embed_query(f"search_query: {text}")
 
 
 def _post_with_retry(url: str, api_key: str, payload: dict) -> dict:
@@ -107,7 +83,7 @@ def _post_with_retry(url: str, api_key: str, payload: dict) -> dict:
 
 
 class JinaEmbeddings(Embeddings):
-    """Jina embeddings API; query and passage vectors use their own task adapters, like nomic's prefixes."""
+    """Jina embeddings API; query and passage vectors use their own task adapters."""
 
     url = "https://api.jina.ai/v1/embeddings"
 
@@ -127,18 +103,15 @@ class JinaEmbeddings(Embeddings):
 
 
 def _embeddings() -> Embeddings:
-    if EMBEDDING_PROVIDER == "jina":
-        if not JINA_API_KEY:
-            raise RuntimeError("EMBEDDING_PROVIDER=jina needs JINA_API_KEY (free key: https://jina.ai/embeddings/).")
-        return JinaEmbeddings(model=EMBEDDING_MODEL, api_key=JINA_API_KEY)
-    embedding_class = NomicEmbeddings if "nomic" in EMBEDDING_MODEL else OllamaEmbeddings
-    return embedding_class(model=EMBEDDING_MODEL, base_url=OLLAMA_BASE_URL)
+    if not JINA_API_KEY:
+        raise RuntimeError("JINA_API_KEY is not set (free key: https://jina.ai/embeddings/).")
+    return JinaEmbeddings(model=EMBEDDING_MODEL, api_key=JINA_API_KEY)
 
 
 def _cohere_scores(question: str, texts: list[str]) -> list[float]:
     """Relevance score (0..1) for every text, in input order, from Cohere Rerank."""
     if not COHERE_API_KEY:
-        raise RuntimeError("RERANKER_PROVIDER=cohere needs COHERE_API_KEY (free trial key: https://dashboard.cohere.com/api-keys).")
+        raise RuntimeError("COHERE_API_KEY is not set (free trial key: https://dashboard.cohere.com/api-keys).")
     body = _post_with_retry(
         "https://api.cohere.com/v2/rerank", COHERE_API_KEY,
         {"model": RERANKER_MODEL, "query": question, "documents": texts, "top_n": len(texts)},
@@ -246,28 +219,14 @@ def _candidate_id(document: Document) -> str:
     ) + f"|{document.page_content[:80]}"
 
 
-def _get_reranker():
-    """Lazy-load the cross-encoder once per process (double-checked so concurrent calls load it once)."""
-    global _reranker
-    if not RERANKER_ENABLED or RERANKER_PROVIDER != "local" or not _CROSS_ENCODER_AVAILABLE:
-        return None
-    if _reranker is None:
-        with _reranker_lock:
-            if _reranker is None:
-                logger.info("Loading cross-encoder reranker: %s", RERANKER_MODEL)
-                _reranker = CrossEncoder(RERANKER_MODEL)
-                logger.info("Cross-encoder reranker loaded.")
-    return _reranker
-
-
 def _rerank_candidates(
     question: str,
     dense_candidates: list[Document],
     bm25_candidates: list[tuple[Document, float]],
 ) -> list[tuple[Document, float | None]]:
-    """Merge dense + BM25 candidates and rerank them (Cohere API or the local cross-encoder).
+    """Merge dense + BM25 candidates and rerank them with the Cohere API.
 
-    Returns (document, score) pairs; score is None when the reranker is unavailable, in which
+    Returns (document, score) pairs; score is None when reranking is disabled or fails, in which
     case the relevance cutoff cannot be applied and the merged order is used.
     """
     documents: dict[str, Document] = {}
@@ -280,16 +239,10 @@ def _rerank_candidates(
     if not unique_docs:
         return []
 
+    if not RERANKER_ENABLED:
+        return [(doc, None) for doc in unique_docs[:FINAL_EVIDENCE_K]]
     try:
-        if RERANKER_ENABLED and RERANKER_PROVIDER == "cohere":
-            ce_scores = _cohere_scores(question, [doc.page_content for doc in unique_docs])
-        else:
-            reranker = _get_reranker()
-            if reranker is None:
-                logger.warning("Reranker not available; returning top %d candidates without reranking.", FINAL_EVIDENCE_K)
-                return [(doc, None) for doc in unique_docs[:FINAL_EVIDENCE_K]]
-            pairs = [(question, doc.page_content) for doc in unique_docs]
-            ce_scores = reranker.predict(pairs).tolist()
+        ce_scores = _cohere_scores(question, [doc.page_content for doc in unique_docs])
     except Exception:
         logger.exception("Reranking failed; falling back to first %d candidates.", FINAL_EVIDENCE_K)
         return [(doc, None) for doc in unique_docs[:FINAL_EVIDENCE_K]]
@@ -340,8 +293,8 @@ def initialize_vectorstore() -> None:
         force_rebuild = os.getenv("FORCE_REBUILD_VECTORSTORE", "").lower() in {"1", "true", "yes"}
         chunker_changed = manifest.get("chunker_version") != CHUNKER_VERSION
         # Vectors from different embedding models are not comparable (or even the same length).
-        embedder = f"{EMBEDDING_PROVIDER}:{EMBEDDING_MODEL}"
-        embedder_changed = manifest.get("embedder", "ollama:nomic-embed-text") != embedder
+        embedder = f"jina:{EMBEDDING_MODEL}"
+        embedder_changed = manifest.get("embedder") != embedder
 
         if force_rebuild or chunker_changed or embedder_changed:
             if chunker_changed:
@@ -349,7 +302,7 @@ def initialize_vectorstore() -> None:
                             manifest.get("chunker_version"), CHUNKER_VERSION)
             if embedder_changed:
                 logger.info("Embedding model changed (%s → %s); wiping and rebuilding all embeddings.",
-                            manifest.get("embedder", "ollama:nomic-embed-text"), embedder)
+                            manifest.get("embedder"), embedder)
             # Only delete+recreate if there are existing chunks — deleting a just-created collection
             # and immediately creating one with the same name triggers a Rust-backend NotFoundError.
             existing_chunks = manifest.get("files", {})
@@ -380,7 +333,7 @@ def initialize_vectorstore() -> None:
                 store.delete(ids=old_ids)
                 logger.info("Removed %d stale chunks for %s.", len(old_ids), fname)
 
-        # Parse ALL source files (fast — no Ollama calls) to rebuild in-memory BM25 + parent index
+        # Parse ALL source files (fast — no API calls) to rebuild in-memory BM25 + parent index
         parent_documents = _build_parent_documents() + _build_md_documents()
         if not parent_documents:
             raise RuntimeError("No usable PDF content was found for retrieval.")
@@ -390,9 +343,8 @@ def initialize_vectorstore() -> None:
         if new_or_changed:
             new_names = {p.name for p in new_or_changed}
             new_children = [c for c in child_documents if c.metadata["source_file"] in new_names]
-            # shortcut: 1 doc per Ollama call to stay under 7 GB RAM; add sleep so runner can GC.
-            # A hosted API takes batches, which keeps the request count inside free-tier rate limits.
-            batch_size = 1 if EMBEDDING_PROVIDER == "ollama" else 32
+            # Batches keep the request count inside the embedding API's free-tier rate limits.
+            batch_size = 32
             for _i in range(0, len(new_children), batch_size):
                 _batch = new_children[_i:_i + batch_size]
                 for _attempt in range(4):
@@ -403,8 +355,6 @@ def initialize_vectorstore() -> None:
                         if _attempt == 3:
                             raise
                         time.sleep(5)
-                if batch_size == 1 and _i % 20 == 0:
-                    time.sleep(1)  # let Ollama runner breathe every 20 chunks
             # Group chunk IDs by source file for the manifest
             by_file: dict[str, list[str]] = {}
             for c in new_children:
@@ -430,10 +380,6 @@ def initialize_vectorstore() -> None:
         logger.info("Vector store ready: %s parent sections, %s evidence chunks.",
                     len(_parent_documents), len(_child_documents))
 
-    try:
-        _get_reranker()
-    except Exception:
-        logger.warning("Cross-encoder warm-up failed; it will be loaded on first query.")
     _ensure_nltk_punkt()
 
 

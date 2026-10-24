@@ -21,9 +21,9 @@ See [ADR-000](000-constraints.md) for the hard constraints that govern every dec
 | [004](004-async-sqlalchemy.md) | Async SQLAlchemy + Alembic | Accepted | Matches FastAPI event loop; schema versioned |
 | [005](005-jwt-auth.md) | JWT access + refresh tokens | Accepted | Stateless, multi-client; token_version makes it revocable |
 | [006](006-groq-llm.md) | Groq free tier for answers and routing | Accepted (with masking) | Only provider fast enough on 7 GB; synthetic data + server-side masking |
-| [007](007-ollama-fallback.md) | Ollama for embeddings only (chat removed) | Accepted | Free, local, ~0.5 GB; Groq has no embeddings API |
+| [007](007-ollama-fallback.md) | Ollama for embeddings only (chat removed) | Superseded by 020 | History: local embeddings before the move to hosted APIs |
 | [008](008-hybrid-search.md) | Hybrid BM25 + vector search | Accepted | Exact clause terms need keyword match; vector alone misses them |
-| [009](009-reranker.md) | CrossEncoder reranker (MiniLM) | Accepted | ~90 MB RAM, ~3 s latency vs 1.1 GB / 15 s for bge-base |
+| [009](009-reranker.md) | CrossEncoder reranker (MiniLM) | Superseded by 020 | History: local reranker before the move to hosted APIs |
 | [010](010-chroma.md) | Chroma as vector store | Accepted (pgvector upgrade path named) | Embedded, zero setup, free |
 | [011](011-rule-prequal.md) | Rule-based pre-qualification engine | Accepted | Explainable to regulators; ML requires training data |
 | [012](012-guardrails.md) | Regex guardrails: redact PII, refuse injection | Accepted | Zero RAM; checksum-validated IDs; Presidio is production path |
@@ -34,6 +34,7 @@ See [ADR-000](000-constraints.md) for the hard constraints that govern every dec
 | [017](017-docker-compose.md) | Docker Compose single-machine | Accepted | Reproducible on any laptop; Kubernetes is production path |
 | [018](018-intent-routing.md) | Query understanding + tool routing for chat | Accepted | "Why was I rejected" lives in Postgres, not PDFs; follow-ups need a standalone rewrite before search |
 | [019](019-multi-product-applications.md) | Personal loan + credit card applications | Accepted | One table + product_type; per-product rules from HDFC eligibility pages, with knockout rules |
+| [020](020-hosted-embeddings-rerank.md) | Hosted Jina embeddings + Cohere rerank | Accepted | No local models: less RAM and setup, and CI tests exactly what ships |
 
 ---
 

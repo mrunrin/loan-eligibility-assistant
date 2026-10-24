@@ -1,26 +1,21 @@
 # Backend runtime (Docker image + CI). Pinned to the versions the app is tested with.
-# torch is not installed: embeddings (Jina) and rerank (Cohere) are hosted APIs. CI installs it separately.
+# No local models: embeddings (Jina), rerank (Cohere) and answers (Groq) are hosted APIs.
 fastapi==0.140.0
 uvicorn[standard]==0.51.0
 python-dotenv==1.2.2
 requests==2.34.2
 nltk==3.10.3
 
-langchain==1.3.14
 langchain-core==1.5.1
-langchain-ollama==1.1.0
 langchain-chroma==1.1.0
 langchain-text-splitters==1.1.2
 chromadb==1.5.9
-# Local cross-encoder only (RERANKER_PROVIDER=local). Left out of the image with torch: the image reranks via Cohere.
-# sentence-transformers==5.6.1
 
 # PDF ingestion (app/doc_pipeline.py)
 pymupdf==1.28.2
 pdfplumber==0.11.10
 
 langfuse==4.14.1
-guardrails-ai==0.1.8
 
 # Database + async ORM
 sqlalchemy[asyncio]==2.0.51

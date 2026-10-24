@@ -4,7 +4,6 @@ PY ?= python
 .PHONY: install migrate seed backend frontend test lint eval-retrieval eval docker-up docker-seed
 
 install:
-	$(PY) -m pip install --index-url https://download.pytorch.org/whl/cpu torch==2.13.0
 	$(PY) -m pip install -r requirements.txt -c constraints.txt
 
 migrate:

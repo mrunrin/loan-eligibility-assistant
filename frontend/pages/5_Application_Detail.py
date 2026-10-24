@@ -100,6 +100,8 @@ else:
             c2.download_button("Save", data=st.session_state[key], file_name=d["file_name"], key=f"save_{d['id']}")
             if d["file_name"].lower().endswith((".jpg", ".jpeg", ".png")):
                 st.image(st.session_state[key], caption=d["file_name"], width=480)
+            elif d["file_name"].lower().endswith(".pdf"):
+                st.pdf(st.session_state[key], height=600)
         elif c2.button("Open", key=f"dl_{d['id']}"):
             file_resp = nav.api("GET", f"/applications/{app_id}/documents/{d['id']}/download", timeout=60)
             if file_resp is not None and file_resp.status_code == 200:

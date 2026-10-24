@@ -467,7 +467,9 @@ async def test_upload_size_limit_and_draft_only(ctx):
     too_big = b"%PDF-" + b"0" * (10 * 1024 * 1024)
     r = await ctx.client.post(f"/applications/{app_id}/documents", files={"file": ("big.pdf", too_big)}, headers=borrower)
     assert r.status_code == 413
-    await ctx.client.post(f"/applications/{app_id}/submit", headers=borrower)
+    await ctx.upload_required(app_id, borrower)
+    submit = await ctx.client.post(f"/applications/{app_id}/submit", headers=borrower)
+    assert submit.status_code == 200, submit.text
     r = await ctx.client.post(f"/applications/{app_id}/documents", files={"file": ("late.pdf", PDF_BYTES)}, headers=borrower)
     assert r.status_code == 409
 
@@ -545,7 +547,7 @@ async def test_one_ip_spraying_many_accounts_gets_429_without_locking_them(ctx):
             attempts += 1
             assert r.status_code == (429 if attempts > IP_FAILED_LOGIN_LIMIT else 401)
     async with ctx.Session() as s:
-        assert all((await s.get(User, v.id)).locked_until is None for v in victims)
+        assert all([(await s.get(User, v.id)).locked_until is None for v in victims])  # list: await in a genexp makes an async generator
 
 
 async def test_idle_or_overlong_session_is_rejected_server_side(ctx):

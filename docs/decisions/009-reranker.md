@@ -1,6 +1,6 @@
 # ADR-009 — CrossEncoder Reranker Choice
 
-**Status:** Accepted  
+**Status:** Superseded by [ADR-020](020-hosted-embeddings-rerank.md) (2026-10-24) — kept as history  
 **Date:** 2026-10-21
 
 ## Context

@@ -13,7 +13,7 @@ from app.doc_pipeline import dedupe_ids, extract_document, make_chunk_id, serial
 
 logger = logging.getLogger(__name__)
 # Bump when chunking logic changes — forces a full wipe+rebuild of all embeddings.
-# v4: nomic task prefixes on embeddings; product/publisher/effective_date metadata; MD source headers stripped.
+# v4: query/passage task prefixes on embeddings; product/publisher/effective_date metadata; MD source headers stripped.
 CHUNKER_VERSION = "v4"
 PRODUCTS = ("business_loan", "personal_loan", "credit_card")
 CHUNK_MAX_CHARS = 800       # target max chars per sentence-level chunk

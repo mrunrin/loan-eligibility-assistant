@@ -5,7 +5,7 @@
 
 ## Context
 
-Each chat message makes up to two Groq calls (router and answer) around a local retrieval step. Without observability, it is impossible to know which questions are slow, which retrievals are failing, what the token costs are, or whether the guardrails are triggering incorrectly. See [ADR-006](006-groq-llm.md) and [ADR-000](000-constraints.md).
+Each chat message makes up to two Groq calls (router and answer) around a retrieval step (Jina embeddings + Cohere rerank, [ADR-020](020-hosted-embeddings-rerank.md)). Without observability, it is impossible to know which questions are slow, which retrievals are failing, what the token costs are, or whether the guardrails are triggering incorrectly. See [ADR-006](006-groq-llm.md) and [ADR-000](000-constraints.md).
 
 ## Decision
 

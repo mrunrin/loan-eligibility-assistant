@@ -3,7 +3,7 @@
 ## Overview
 A loan origination portal (business loan, personal loan and credit card applications, deterministic
 pre-qualification, officer review, admin) with **HDFC Loan Bot**, a grounded assistant that answers from the
-policy knowledge base — 5 HDFC PDFs (personal loan, business loan, credit card agreements) + 4 HDFC/RBI
+policy knowledge base — 5 HDFC PDFs (personal and business loan agreements, credit card agreement, MITC and FAQ) + 4 HDFC/RBI
 MD files — with clause-level citations, and can also explain the borrower's own application or compute an EMI.
 Student capstone demo; not an official HDFC Bank service.
 
@@ -13,7 +13,7 @@ Student capstone demo; not an official HDFC Bank service.
 - `frontend/streamlit_app.py` — login (password → TOTP step, or first-login 2FA enrollment for staff),
   email verification, FAQ.
 - `frontend/pages/` — Register, My Applications, Apply (product picker + 4-step form with required-document
-  checklist), Application Detail (rule breakdown, authorised document download, appeal, withdraw, officer
+  checklist), Application Detail (rule breakdown, authorised document preview (image / PDF) and download, appeal, withdraw, officer
   decision), Officer Queue (claim / take over → decide), Admin Dashboard, AI Loan Assistant, Security (2FA, account deletion).
 - `frontend/nav.py` — the single place for `API_URL`, the authenticated `api()` helper (bearer token,
   forwards the client IP, one refresh-and-retry on 401, backend-down handling), page/role guards, sidebar,
@@ -35,9 +35,8 @@ Student capstone demo; not an official HDFC Bank service.
 ```
 [1/4] Running DB migrations...          ← Alembic upgrade head (psycopg2, sync, advisory-locked)
 [1/4] DB migrations applied ✓
-[2/4] Loading reranker model...         ← cross-encoder warm-up, ~90 MB download on first run
-[2/4] Reranker model loaded ✓
-[3/4] Connecting to Ollama + loading vectorstore...  ← stops with a clear error if Ollama is down
+[2/4] Reranker: Cohere API (rerank-v3.5) ✓  ← warns instead if COHERE_API_KEY is missing
+[3/4] Loading vectorstore (Jina jina-embeddings-v3 embeddings)...  ← stops with a clear error if Jina fails
 [3/4] Vectorstore ready ✓
 [4/4] Server ready — accepting requests ✓
 ```
@@ -53,7 +52,7 @@ wiped and rebuilt once automatically.
 - Status machine: draft → (submit) pre_qual_pass | pre_qual_fail | manual_review → (officer claim)
   under_review → approved | rejected; pre_qual_fail → (borrower appeal with written reason) manual_review;
   `POST /applications/{id}/withdraw` from any state before a decision. Claims untouched for
-  `CLAIM_TIMEOUT_HOURS` (24) can be taken over. Status writes take row locks.
+  `CLAIM_TIMEOUT_HOURS` (1) can be taken over. Status writes take row locks.
 - Submit needs the per-product document checklist (`REQUIRED_DOCUMENTS`). Every status change emails the
   borrower (failed rules listed in writing on pre_qual_fail). Documents are stored under random names with a
   SHA-256 hash checked on each download.
@@ -91,9 +90,8 @@ wiped and rebuilt once automatically.
 - **Index**: ChromaDB, stable collection `loan_policy_v1`; per-file manifest (`ingest_manifest.json`)
   tracks SHA-256 hashes so only new/changed files are re-embedded on startup. A `CHUNKER_VERSION` bump
   (currently `v4`) wipes and rebuilds all; `FORCE_REBUILD_VECTORSTORE=true` does it on demand.
-- **Retrieval**: dense (nomic-embed-text with `search_query:` / `search_document:` prefixes) + BM25,
-  compound-question decomposition, cross-encoder rerank (`cross-encoder/ms-marco-MiniLM-L-6-v2`, ~90 MB,
-  loaded at cold-start step 2), metadata filters (lender named in the question; product of the selected
+- **Retrieval**: dense (Jina `jina-embeddings-v3` with query / passage task adapters) + BM25,
+  compound-question decomposition, Cohere rerank (`rerank-v3.5`), metadata filters (lender named in the question; product of the selected
   application), relevance floor (`RERANK_MIN_SCORE`) below which the bot says the policy does not specify the answer.
 - **Generation**: top 3 passages as labelled, quoted evidence `[S1..S3]` with their publisher; the model must
   cite inline and credit HDFC Bank vs RBI; passages and user data are treated as data, not instructions.
@@ -105,20 +103,21 @@ wiped and rebuilt once automatically.
 
 ## 6. Model providers
 - Groq — `openai/gpt-oss-20b` answers; `qwen/qwen3.8-27b` rewrites and routes. 429s are retried.
-- Ollama (local) — `nomic-embed-text` embeddings only, needed at startup and for every policy question.
-- sentence-transformers (local) — cross-encoder reranker.
-- There is no automatic failover: an unavailable provider returns a clear error.
+- Jina — `jina-embeddings-v3` embeddings, needed at startup and for every policy question.
+- Cohere — `rerank-v3.5` reranking; if it fails, answers use unranked passages and a warning is logged.
+- No model runs locally.
 
 ## 7. Observability & evaluation
 - Langfuse: one trace per chat request — `rewrite-and-route` generation, `hybrid-retrieval` with a nested
   `rerank` span, `llm-generation` — with token usage on each generation; all inputs/outputs pass through
   the PII mask before export.
-- `eval/retrieval_eval.py` — recall@3 and MRR on 65 golden questions with gold pages (CI-gated).
+- `eval/retrieval_eval.py` — recall@3 and MRR on 9 graded golden questions with gold pages (CI-gated).
 - `promptfooconfig.yaml` + `eval/questions.yaml` — 15 answer-level cases with a deterministic numeric
   faithfulness check on every answer; CI gates on pass rate (`eval/check_pass_rate.py`).
-- `app/tests/` — engine unit tests and API integration tests against PostgreSQL.
+- `app/tests/` — unit tests (pre-qualification engine, guardrails, chunking, Jina/Cohere clients) and API
+  integration tests against PostgreSQL.
 
 ## 8. Deployment
-- `docker-compose.yml`: postgres, backend (CPU-only torch, non-root, healthcheck on readiness), frontend,
-  and an opt-in `seed` profile. Ollama runs on the host. API published on loopback only.
+- `docker-compose.yml`: postgres, backend (no local models, non-root, healthcheck on readiness), frontend,
+  and an opt-in `seed` profile. API published on loopback only.
 - `.github/workflows/eval.yml`: lint → migrations → pytest → retrieval gate → backend → promptfoo gate.

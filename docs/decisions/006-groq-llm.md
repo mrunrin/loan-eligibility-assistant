@@ -30,12 +30,12 @@ The system only operates on **synthetic data** (see ADR-000). No real customer P
 |---|---|
 | OpenAI / Azure OpenAI | Paid. Breaks ₹0 constraint. Azure OpenAI India would be the production choice. |
 | Local Ollama (primary) | A 7B model gives noticeably worse answers. A 70B model needs ~40 GB RAM — doesn't fit. |
-| Hugging Face Inference API | A third outside data processor with no quality advantage over Groq. Dropped (see ADR for HF removal). |
+| Hugging Face Inference API | A third outside data processor with no quality advantage over Groq. Dropped. |
 | Self-hosted LLM via llama.cpp | ~4–8 GB RAM leaves no headroom for the rest of the stack. 15–20 token/s is too slow for a live demo. |
 
 ## Consequences
 
-- **Free tier rate limits:** Groq's free tier has daily token limits. If one session exhausts the quota, all users are blocked until the next day. Mitigated by the per-borrower daily budget above and the per-user request rate limit ([ADR-015](015-rate-limiting.md)). There is no offline answer fallback ([ADR-007](007-ollama-fallback.md)); an unavailable provider returns a clear error.
+- **Free tier rate limits:** Groq's free tier has daily token limits. If one session exhausts the quota, all users are blocked until the next day. Mitigated by the per-borrower daily budget above and the per-user request rate limit ([ADR-015](015-rate-limiting.md)). There is no offline answer fallback; all model work runs on hosted APIs ([ADR-020](020-hosted-embeddings-rerank.md)) and an unavailable Groq returns a clear error.
 - **Budget storage:** the budget is kept in process memory (one backend worker); a restart resets it. The last request of the day can overshoot by its own size, because its cost is only known afterwards.
 - **Data residency:** Groq serves from the US. Masked synthetic data is not a compliance risk for this demo; in production, a private in-region endpoint is required.
 - **Latency:** Groq's inference is fast (~200–400 token/s). Acceptable for a demo.

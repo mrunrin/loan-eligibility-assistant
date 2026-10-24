@@ -52,25 +52,13 @@ def _startup_log(step: int, total: int, msg: str) -> None:
 
 
 async def _init_vectorstore_until_ready() -> None:
-    """Ping Ollama first when it is the embedder (fail hard if not running), then load the vectorstore.
+    """Load the vectorstore (embeddings via the Jina API).
     Self-heals ChromaDB UUID corruption by wiping the dir and rebuilding once."""
     import shutil
-    import urllib.request
 
-    from app.config import EMBEDDING_PROVIDER, OLLAMA_BASE_URL, VECTORSTORE_PATH
+    from app.config import VECTORSTORE_PATH
 
     os.environ["VECTORSTORE_NO_PROMPT"] = "1"
-
-    # Fast-fail: a clear error beats a silent retry loop.
-    if EMBEDDING_PROVIDER == "ollama":
-        try:
-            urllib.request.urlopen(f"{OLLAMA_BASE_URL}/api/tags", timeout=5)
-        except Exception:
-            raise RuntimeError(
-                f"\n\nOllama is not running at {OLLAMA_BASE_URL}.\n"
-                "Start it first:  ollama serve\n"
-                "Then pull the embedding model:  ollama pull nomic-embed-text\n"
-            )
 
     try:
         await run_in_threadpool(retrieval.initialize_vectorstore)
@@ -82,13 +70,9 @@ async def _init_vectorstore_until_ready() -> None:
         )
         if not _is_chroma_corrupt:
             logger.exception("Vectorstore init failed")
-            hint = (
-                f"Ollama is up at {OLLAMA_BASE_URL} but embedding failed.\n"
-                "Make sure the embedding model is pulled:  ollama pull nomic-embed-text\n"
-                if EMBEDDING_PROVIDER == "ollama"
-                else "Check JINA_API_KEY and your Jina free-token balance (see the log above).\n"
-            )
-            raise RuntimeError(f"\n\nVectorstore init failed. {hint}")
+            raise RuntimeError(
+                "\n\nVectorstore init failed. Check JINA_API_KEY and your Jina free-token balance (see the log above).\n"
+            ) from exc
 
     # ChromaDB collection UUID is out of sync with on-disk data (corrupt state).
     # Wipe the entire vectorstore directory and rebuild from scratch — once.
@@ -116,19 +100,16 @@ async def lifespan(application: FastAPI):
         logger.exception("Alembic migration failed — aborting startup")
         raise
 
-    # ── Step 2: Reranker model warm-up (heavy on first run) ─────────────────
-    if retrieval.RERANKER_PROVIDER == "local":
-        _startup_log(2, 4, "Loading reranker model (may download ~90 MB on first run)...")
-        try:
-            await run_in_threadpool(retrieval._get_reranker)
-            _startup_log(2, 4, "Reranker model loaded ✓")
-        except Exception:
-            logger.warning("Reranker warm-up failed — will retry on first query")
+    # ── Step 2: Reranker (Cohere API) ────────────────────────────────────────
+    if not retrieval.RERANKER_ENABLED:
+        _startup_log(2, 4, "Reranker disabled (RERANKER_ENABLED=false)")
+    elif not retrieval.COHERE_API_KEY:
+        _startup_log(2, 4, "Reranker: COHERE_API_KEY not set — answers will use unranked passages")
     else:
-        _startup_log(2, 4, f"Reranker: {retrieval.RERANKER_PROVIDER} API ({retrieval.RERANKER_MODEL}) ✓")
+        _startup_log(2, 4, f"Reranker: Cohere API ({retrieval.RERANKER_MODEL}) ✓")
 
     # ── Step 3: Vectorstore + embeddings ─────────────────────────────────────
-    _startup_log(3, 4, f"Loading vectorstore ({retrieval.EMBEDDING_PROVIDER} embeddings)...")
+    _startup_log(3, 4, f"Loading vectorstore (Jina {retrieval.EMBEDDING_MODEL} embeddings)...")
     await _init_vectorstore_until_ready()
     _startup_log(3, 4, "Vectorstore ready ✓")
 
@@ -272,7 +253,7 @@ def root():
 
 @app.get("/health")
 async def health():
-    """200 only when the database and the vector store are usable; Ollama is informational."""
+    """200 only when the database and the vector store are usable."""
     try:
         async with engine.connect() as conn:
             await conn.execute(text("SELECT 1"))

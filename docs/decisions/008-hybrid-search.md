@@ -9,7 +9,7 @@ The knowledge base consists of legal loan agreements, RBI policy documents, and 
 
 ## Decision
 
-Use **hybrid retrieval**: keyword BM25 search combined with dense vector search, then reranked with a cross-encoder. See [ADR-009](009-reranker.md) for the reranker choice.
+Use **hybrid retrieval**: keyword BM25 search combined with dense vector search, then reranked with the Cohere Rerank API. See [ADR-020](020-hosted-embeddings-rerank.md) for the reranker choice.
 
 ## Why hybrid, not vector-only
 

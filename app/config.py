@@ -7,18 +7,10 @@ load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = Path(os.getenv("DATA_DIR", str(BASE_DIR / "data")))
-# Embeddings: "jina" (hosted API, no local model) or "ollama" (local nomic-embed-text).
-EMBEDDING_PROVIDER = os.getenv("EMBEDDING_PROVIDER", "jina").lower()
-EMBEDDING_MODEL = os.getenv(
-    "EMBEDDING_MODEL", "jina-embeddings-v3" if EMBEDDING_PROVIDER == "jina" else "nomic-embed-text"
-)
+# All model work runs on hosted APIs: Jina embeddings, Cohere rerank, Groq answers.
+EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "jina-embeddings-v3")
 JINA_API_KEY = os.getenv("JINA_API_KEY", "")
-OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
-# Reranker: "cohere" (hosted API) or "local" (sentence-transformers CrossEncoder; needs torch).
-RERANKER_PROVIDER = os.getenv("RERANKER_PROVIDER", "cohere").lower()
-RERANKER_MODEL = os.getenv(
-    "RERANKER_MODEL", "rerank-v3.5" if RERANKER_PROVIDER == "cohere" else "cross-encoder/ms-marco-MiniLM-L-6-v2"
-)
+RERANKER_MODEL = os.getenv("RERANKER_MODEL", "rerank-v3.5")
 COHERE_API_KEY = os.getenv("COHERE_API_KEY", "")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 GROQ_MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-20b")
@@ -33,9 +25,8 @@ VECTORSTORE_PATH = Path(os.getenv("VECTORSTORE_PATH", str(BASE_DIR / "vectorstor
 AUDIT_LOG_PATH = Path(os.getenv("AUDIT_LOG_PATH", str(BASE_DIR / "logs" / "audit.jsonl")))
 MAX_HISTORY_MESSAGES = int(os.getenv("MAX_HISTORY_MESSAGES", "12"))
 MAX_MESSAGE_CHARS = int(os.getenv("MAX_MESSAGE_CHARS", "2000"))
-# Reranker relevance floor; below it the bot refuses instead of guessing. Scales differ by provider:
-# Cohere returns 0..1; the local ms-marco-MiniLM returns raw logits, where -5.0 keeps all but clearly irrelevant passages.
-RERANK_MIN_SCORE = float(os.getenv("RERANK_MIN_SCORE", "0.0" if RERANKER_PROVIDER == "cohere" else "-5.0"))
+# Reranker relevance floor (Cohere scores are 0..1); below it the bot refuses instead of guessing.
+RERANK_MIN_SCORE = float(os.getenv("RERANK_MIN_SCORE", "0.0"))
 # Lender names users may mention; each maps to the policy PDF whose text contains it.
 KNOWN_LENDER_NAMES = [
     n.strip() for n in os.getenv("KNOWN_LENDER_NAMES", "HDFC").split(",") if n.strip()
@@ -85,7 +76,7 @@ TRUSTED_PROXIES = [
 ]
 
 # Officer claims older than this return to the shared queue (abandoned reviews).
-CLAIM_TIMEOUT_HOURS = int(os.getenv("CLAIM_TIMEOUT_HOURS", "24"))
+CLAIM_TIMEOUT_HOURS = int(os.getenv("CLAIM_TIMEOUT_HOURS", "1"))
 
 # File uploads
 UPLOAD_DIR = Path(os.getenv("UPLOAD_DIR", str(BASE_DIR / "uploads")))

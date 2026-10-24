@@ -9,7 +9,7 @@ with inline clause citations, and can also explain the borrower's own applicatio
 This is a student capstone demo, not an official HDFC Bank service.
 
 Stack: FastAPI · PostgreSQL (SQLAlchemy async + Alembic) · Streamlit · ChromaDB · BM25 ·
-cross-encoder reranking · Groq (answers) · Ollama (embeddings) · Langfuse · Docker · GitHub Actions.
+Cohere (reranking) · Groq (answers) · Jina (embeddings) · Langfuse · Docker · GitHub Actions.
 
 **New here? Follow [USER_MANUAL.md](USER_MANUAL.md)** — clone to a running backend and frontend, step by step.
 
@@ -24,12 +24,12 @@ See [project_architecture_summary.md](project_architecture_summary.md) for the d
 - Roles: borrower, officer, admin — enforced by the API on every endpoint.
 - Three products (business loan, personal loan, credit card), each with its own 4-step form, required
   document checklist and pre-qualification rules.
-- Document upload (PDF/JPG/PNG, content-checked, 10 MB cap, SHA-256 tamper check on every download).
+- Document upload (PDF/JPG/PNG, content-checked, 10 MB cap, SHA-256 tamper check on every download), with in-page image and PDF preview.
 - Explainable pre-qualification: weighted rules plus hard knock-out rules → pass / manual review / fail,
   with a per-rule breakdown; self-reported figures are marked *unverified*.
 - Borrowers can appeal a pre-qualification fail (moves it to manual review) and withdraw before a decision.
 - Officer queue: claim an application (`under_review`), then approve or reject with a mandatory reason;
-  officers cannot decide their own applications; claims untouched for 24 h return to the queue.
+  officers cannot decide their own applications; claims untouched for 1 h return to the queue.
 - The borrower is emailed on every status change; a fail email lists the failed rules in writing.
 - Admin dashboard: application/user statistics, role management, account activation.
 
@@ -38,7 +38,7 @@ See [project_architecture_summary.md](project_architecture_summary.md) for the d
   policy search, the borrower's own application record, or an EMI calculator.
 - Column-aware PDF ingestion with cross-page table merging and clause-aware chunking; every chunk carries
   `product`, `publisher` and `effective_date` metadata.
-- Hybrid retrieval (ChromaDB dense with nomic task prefixes + BM25) → cross-encoder rerank → relevance floor.
+- Hybrid retrieval (ChromaDB dense with Jina query/passage embeddings + BM25) → Cohere rerank → relevance floor.
   When the borrower picks an application in the chat, search is limited to that product plus general rules.
 - Answers cite their evidence inline as `[S1]…[S3]` and credit each term to its publisher (HDFC Bank or RBI);
   the sources panel shows publisher, document, page, clause, date and excerpt.
@@ -62,7 +62,7 @@ flowchart TD
     RT -->|emi| E[EMI calculator]
     R --> C[(ChromaDB)]
     R --> B[BM25]
-    C --> X[Cross-encoder rerank + relevance floor]
+    C --> X[Cohere rerank + relevance floor]
     B --> X
     X --> L[Answer model: Groq]
     L --> O[Output PII guard] --> S
@@ -72,9 +72,10 @@ flowchart TD
 
 ## Prerequisites
 
-- Python 3.11+
+- Python 3.13 (3.12+ works; some pinned packages, such as numpy, need 3.12)
 - PostgreSQL 15+ (or Docker)
-- [Ollama](https://ollama.com) with `nomic-embed-text` (embeddings only)
+- Free API keys for [Jina](https://jina.ai/embeddings/) (embeddings) and [Cohere](https://dashboard.cohere.com/api-keys)
+  (reranking). All model work runs on hosted APIs; nothing is downloaded or run locally.
 - A free [Groq API key](https://console.groq.com/keys) for chat answers
 - Node.js 20 (only for the Promptfoo evaluation)
 
@@ -92,23 +93,22 @@ Then edit `.env`:
 - SMTP settings for real email (verification codes, lockout notices, status updates), **or** leave
   `SMTP_USER`/`SMTP_PASSWORD` empty and set `DEV_EMAIL_VERIFY=true` to verify new accounts instantly from the UI.
 - `GROQ_API_KEY` — needed for chat answers.
-- Optional: Langfuse keys, `DATA_ENCRYPTION_KEY` (TOTP-at-rest key). Every other value already equals the code default.
+- `JINA_API_KEY` — **required** for embeddings; the backend stops at startup without it.
+- `COHERE_API_KEY` — **required** for reranking; without it answers are built from unranked passages.
+- Optional: Langfuse keys, `DATA_ENCRYPTION_KEY` (TOTP-at-rest key). The other values can stay as they are.
 
 ## Run locally
 
 ```powershell
 python -m venv capstone
 .\capstone\Scripts\activate
-python -m pip install --index-url https://download.pytorch.org/whl/cpu torch==2.13.0
 python -m pip install -r requirements.txt -c constraints.txt
 
-ollama pull nomic-embed-text
-
 python -m alembic upgrade head      # also runs automatically when the backend starts
-python scripts/seed_demo.py         # optional demo users/applications; prints the demo passwords
+python scripts/seed_demo.py         # optional demo users/applications (sign-ins in scripts/seed_data/users.json)
 ```
 
-Start Ollama, then the backend and the frontend in two terminals:
+Start the backend and the frontend in two terminals:
 
 ```powershell
 python -m uvicorn app.main:app --port 8000
@@ -120,24 +120,22 @@ python -m streamlit run frontend/streamlit_app.py
 
 Open http://localhost:8501. API docs: http://localhost:8000/docs.
 
-The first backend start builds the vector index from `data/*.pdf` and `data/*.md` (needs Ollama for
-embeddings). Incremental ingestion: a per-file manifest tracks SHA-256 hashes so only new or changed files
+The first backend start builds the vector index from `data/*.pdf` and `data/*.md` (embedded through the
+Jina API). Incremental ingestion: a per-file manifest tracks SHA-256 hashes so only new or changed files
 are re-embedded on restart. A `CHUNKER_VERSION` bump wipes and re-embeds everything automatically;
 `FORCE_REBUILD_VECTORSTORE=true` does the same on demand.
 
 ### Demo accounts
 
 `scripts/seed_demo.py` creates the users in `scripts/seed_data/users.json` as already-verified accounts.
-Passwords are not stored in the repository: set `SEED_PASSWORD_ADMIN`, `SEED_PASSWORD_OFFICER` and
-`SEED_PASSWORD_BORROWER`, or let the script generate one per role and print them once. Officers and admins
-are taken through 2FA enrollment on their first login.
+Their passwords are the public demo values in that file's `password` field. Officers and admins are taken
+through 2FA enrollment on their first login.
 
 ## Run with Docker Compose
 
-Ollama runs on the host; PostgreSQL, the backend and the frontend run in containers.
+PostgreSQL, the backend and the frontend run in containers.
 
 ```powershell
-ollama serve
 docker compose up --build
 docker compose --profile seed run --rm seed     # optional demo data
 ```
@@ -148,12 +146,12 @@ The frontend is on http://localhost:8501. The API is published on `127.0.0.1:800
 ## Tests, lint and evaluation
 
 ```powershell
-python -m pytest            # engine unit tests + API integration tests (need PostgreSQL)
+python -m pytest            # unit tests (engine, guardrails, chunking) + API integration tests (need PostgreSQL)
 python -m ruff check .
-python eval/retrieval_eval.py   # recall@3 / MRR on 65 golden questions (needs Ollama)
+python eval/retrieval_eval.py   # recall@3 / MRR on 9 golden questions
 ```
 
-Promptfoo answer evaluation (backend running; needs an access token for any verified user):
+Promptfoo answer evaluation (backend running; use an officer or admin access token, which has no daily token budget):
 
 ```powershell
 $env:EVAL_ACCESS_TOKEN = "<access token from POST /auth/login>"
@@ -191,10 +189,11 @@ until an officer checks them. Money is computed with `Decimal` and the EMI is ro
 |---|---|---|
 | Answers | `GROQ_MODEL` (default `openai/gpt-oss-20b`) | Groq cloud |
 | Rewrite + intent routing | `ROUTER_MODEL` (default `qwen/qwen3.8-27b`) | Groq cloud |
-| Embeddings | `nomic-embed-text` | Ollama, local |
-| Reranking | `cross-encoder/ms-marco-MiniLM-L-6-v2` | sentence-transformers, local |
+| Embeddings | `EMBEDDING_MODEL` (default `jina-embeddings-v3`) | Jina API |
+| Reranking | `RERANKER_MODEL` (default `rerank-v3.5`) | Cohere API |
 
-There is no silent fallback; an unavailable provider returns a clear error.
+If Jina is unavailable the request fails with a clear error. If Cohere is unavailable, answers are built from
+unranked passages and the backend logs a warning.
 
 ## Observability
 
@@ -226,8 +225,8 @@ append-only audit trail; migrations `001`–`012`; unit and API integration test
 quality gates in CI; Docker Compose with a seed profile.
 
 Open before the final demo:
-- Update Docker and CI for the latest changes, then run a clean `docker compose up --build` end to end.
-- Re-run `eval/retrieval_eval.py` after the re-embed (nomic prefixes) and compare recall@3 / MRR.
+- Run a clean `docker compose up --build` end to end.
+- Re-run `eval/retrieval_eval.py` after any re-embed and compare recall@3 / MRR.
 - Measure time-to-first-token and total latency on the demo machine.
 - Push a deliberately broken change to confirm the CI gates fail, and make the "RAG Quality Gate"
   check required in the repository's branch protection settings.
@@ -246,16 +245,15 @@ Open before the final demo:
 - Uploaded files are stored on local disk (a Docker volume), not object storage; status emails are sent by
   in-process background tasks, not a job queue.
 - The policy corpus is 5 HDFC PDFs (personal loan, business loan, credit card) + 4 HDFC/RBI
-  MD files — not a full bank policy set; the evaluation sets are small (65 retrieval,
+  MD files — not a full bank policy set; the evaluation sets are small (9 retrieval,
   15 answer cases) and the faithfulness check covers numbers only.
 
 ## Troubleshooting
 
 - **Backend exits at startup with a JWT error** — set `JWT_SECRET_KEY` in `.env` (see Configuration).
-- **Backend exits at startup saying Ollama is not running** — start Ollama (`ollama serve`) and pull
-  `nomic-embed-text`; the backend checks Ollama before building the vector index and stops if it is down.
+- **Backend exits at startup with "Vectorstore init failed"** — check `JINA_API_KEY` and your Jina free-token
+  balance; the log above the error shows the API response.
 - **`/health` returns 503** — check `database_ready` / `vectorstore_ready` in the body.
-- **Policy questions answer "I could not search the loan policy documents"** — Ollama stopped after startup;
-  query embeddings need it on every question.
+- **Policy questions answer "I could not search the loan policy documents"** — the Jina API failed for that
+  question (key, quota or network); every question embeds the query through it.
 - **Cannot log in after registering** — verify the email (or set `DEV_EMAIL_VERIFY=true` with SMTP off).
-- **Ollama from Docker** — the compose file sets `OLLAMA_BASE_URL=http://host.docker.internal:11434`.

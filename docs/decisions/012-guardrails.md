@@ -42,7 +42,8 @@ A PII classifier (a fine-tuned BERT model) would add ~200–400 MB RAM and 1–2
 ## Consequences
 
 - The output guard compares against the raw source chunk text, not the masked context, to avoid false positives from the amount-banding masking in [ADR-006](006-groq-llm.md).
-- `python -m app.guardrails_config` runs a self-check of the redaction and refusal rules.
+- `app/tests/test_guardrails.py` (pytest, run in CI) covers redaction with checksums, refusals and the output guard;
+  `python -m app.guardrails_config` runs a quick self-check of the same rules.
 
 ## Production path
 
