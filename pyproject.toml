@@ -26,4 +26,6 @@ ignore = [
 
 [tool.pytest.ini_options]
 testpaths = ["app/tests"]
+# app/ has no __init__.py, so bare `pytest` (as CI runs it) would not put the project root on sys.path.
+pythonpath = ["."]
 addopts = "-q"
