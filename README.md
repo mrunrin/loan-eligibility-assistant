@@ -155,7 +155,7 @@ Promptfoo answer evaluation (backend running; use an officer or admin access tok
 
 ```powershell
 $env:EVAL_ACCESS_TOKEN = "<access token from POST /auth/login>"
-npx promptfoo@0.102.0 eval --no-cache -o eval/promptfoo_results.json
+npx promptfoo@0.102.0 eval --no-cache --no-write -o eval/promptfoo_results.json
 python eval/check_pass_rate.py eval/promptfoo_results.json
 ```
 

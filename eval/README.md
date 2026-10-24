@@ -26,7 +26,7 @@ Start the backend, log in as an officer or admin to get an access token (see the
 
 ```powershell
 $env:EVAL_ACCESS_TOKEN = "<access token>"
-npx promptfoo@0.102.0 eval --no-cache -o eval/promptfoo_results.json
+npx promptfoo@0.102.0 eval --no-cache --no-write -o eval/promptfoo_results.json
 python eval/check_pass_rate.py eval/promptfoo_results.json
 ```
 

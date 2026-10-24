@@ -103,7 +103,9 @@ jobs:
           EOF
 
       - name: Run Promptfoo evaluation
-        run: npx promptfoo@0.102.0 eval --no-cache -o eval/promptfoo_results.json || true
+        # --no-write: skip promptfoo's local SQLite history (0.102.0 crashes saving an eval there:
+        # FOREIGN KEY constraint failed). -o still writes the results file the gate reads.
+        run: npx promptfoo@0.102.0 eval --no-cache --no-write -o eval/promptfoo_results.json || true
 
       - name: Gate on promptfoo pass rate
         env:
