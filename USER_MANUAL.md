@@ -24,7 +24,7 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy RemoteSigned
 .\capstone\Scripts\Activate.ps1
 python -m pip install --upgrade pip
 python -m pip install --index-url https://download.pytorch.org/whl/cpu torch==2.13.0
-python -m pip install -r requirements.txt
+python -m pip install -r requirements.txt -c constraints.txt
 python -m pip check
 ```
 
@@ -139,9 +139,13 @@ then everything else**. Installing PyTorch first stops pip from pulling the mult
 ```powershell
 python -m pip install --upgrade pip
 python -m pip install --index-url https://download.pytorch.org/whl/cpu torch==2.13.0
-python -m pip install -r requirements.txt
+python -m pip install -r requirements.txt -c constraints.txt
 python -m pip check
 ```
+
+`-c constraints.txt` installs the exact version of every package, including sub-dependencies, that the
+project was tested with (Python 3.13). On another Python version, if pip says a pinned version is not
+available, drop `-c constraints.txt` and run that line again.
 
 This downloads about 1–2 GB and can take 10–20 minutes. `pip check` should print `No broken requirements found.`
 Quick test that the key libraries load:
@@ -307,7 +311,7 @@ python -m uvicorn app.main:app --port 8000          # window 1
 python -m streamlit run frontend/streamlit_app.py   # window 2 (activate first)
 ```
 
-Make sure PostgreSQL and Ollama are running. After `git pull`, run `python -m pip install -r requirements.txt`
+Make sure PostgreSQL and Ollama are running. After `git pull`, run `python -m pip install -r requirements.txt -c constraints.txt`
 if requirements changed; migrations apply themselves on backend start.
 
 ---
@@ -356,6 +360,10 @@ local guide.
 ---
 
 ## For maintainers: pushing your changes
+
+If you added or upgraded a package, update its pin in the `requirements*.txt` file, then refresh
+`constraints.txt` from your working venv: `python -m pip freeze > constraints.txt` (keep the 3-line header
+comment at the top). The Docker images install from the same file.
 
 ```powershell
 git status                  # review: .env, capstone/, vectorstore/, uploads/*, logs/ must NOT appear

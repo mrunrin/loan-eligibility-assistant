@@ -1,4 +1,4 @@
-FROM python:3.11-slim
+FROM python:3.13-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -8,10 +8,11 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-COPY requirements-docker.txt .
+COPY requirements-docker.txt constraints.txt ./
 
-RUN pip install --no-cache-dir --default-timeout=300 --retries=10 --index-url https://download.pytorch.org/whl/cpu torch==2.13.0
-RUN pip install --no-cache-dir --default-timeout=300 --retries=10 -r requirements-docker.txt
+# Hosted embeddings + rerank need no torch. For RERANKER_PROVIDER=local, uncomment this and sentence-transformers in requirements-docker.txt.
+# RUN pip install --no-cache-dir --default-timeout=300 --retries=10 --index-url https://download.pytorch.org/whl/cpu torch==2.13.0
+RUN pip install --no-cache-dir --default-timeout=300 --retries=10 -r requirements-docker.txt -c constraints.txt
 RUN python -c "import nltk; nltk.download('punkt_tab')"
 
 COPY app ./app

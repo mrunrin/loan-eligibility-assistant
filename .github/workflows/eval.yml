@@ -10,6 +10,9 @@ env:
   DATABASE_URL: postgresql+asyncpg://loanbot:loanbot@localhost:5432/loanbot
   JWT_SECRET_KEY: ci-only-jwt-secret-0123456789abcdef0123456789abcdef
   CHAT_MODEL: qwen3.5:2b
+  # CI keeps the local models (no API keys needed for the retrieval gate).
+  EMBEDDING_PROVIDER: ollama
+  RERANKER_PROVIDER: local
   EMBEDDING_MODEL: nomic-embed-text
   OLLAMA_BASE_URL: http://localhost:11434
   UPLOAD_DIR: /tmp/uploads
@@ -49,7 +52,7 @@ jobs:
       - name: Install Python dependencies (CPU-only torch)
         run: |
           pip install --index-url https://download.pytorch.org/whl/cpu torch==2.13.0
-          pip install -r requirements-docker.txt -r requirements-dev.txt
+          pip install -r requirements-docker.txt -r requirements-dev.txt sentence-transformers==5.6.1
 
       - name: Lint
         run: ruff check .

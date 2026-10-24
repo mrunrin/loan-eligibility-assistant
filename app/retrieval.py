@@ -11,11 +11,14 @@ import time
 from collections import Counter
 from pathlib import Path
 
+import requests
 from langchain_chroma import Chroma
 from langchain_core.documents import Document
+from langchain_core.embeddings import Embeddings
 from langchain_ollama import OllamaEmbeddings
 
 try:
+    # Only RERANKER_PROVIDER=local needs this (and torch); the Docker image leaves both out.
     from sentence_transformers import CrossEncoder
     _CROSS_ENCODER_AVAILABLE = True
 except ImportError:
@@ -31,7 +34,17 @@ from app.chunking import (
     _md_paths,
     _pdf_paths,
 )
-from app.config import EMBEDDING_MODEL, KNOWN_LENDER_NAMES, OLLAMA_BASE_URL, VECTORSTORE_PATH
+from app.config import (
+    COHERE_API_KEY,
+    EMBEDDING_MODEL,
+    EMBEDDING_PROVIDER,
+    JINA_API_KEY,
+    KNOWN_LENDER_NAMES,
+    OLLAMA_BASE_URL,
+    RERANKER_MODEL,
+    RERANKER_PROVIDER,
+    VECTORSTORE_PATH,
+)
 
 logger = logging.getLogger(__name__)
 _vectorstore: Chroma | None = None
@@ -49,8 +62,9 @@ DENSE_CANDIDATE_K = 20
 BM25_CANDIDATE_K = 20
 FINAL_EVIDENCE_K = 3
 RERANKER_ENABLED = os.getenv("RERANKER_ENABLED", "true").lower() in {"1", "true", "yes"}
-RERANKER_MODEL = "cross-encoder/ms-marco-MiniLM-L-6-v2"
-_reranker: CrossEncoder | None = None
+_reranker: "CrossEncoder | None" = None  # quoted: CrossEncoder is None when sentence-transformers is absent
+_API_TIMEOUT = 30
+_API_RETRIES = 4
 _COMPOUND_SPLIT_RE = re.compile(
     r"(?:,?\s+and\s+(?:also\s+)?what\b)"
     r"|(?:,?\s+also,?\s+what\b)"
@@ -73,6 +87,66 @@ class NomicEmbeddings(OllamaEmbeddings):
 
     def embed_query(self, text: str) -> list[float]:
         return super().embed_query(f"search_query: {text}")
+
+
+def _post_with_retry(url: str, api_key: str, payload: dict) -> dict:
+    """POST to a hosted model API; on 429/5xx wait (honouring Retry-After) and retry."""
+    for attempt in range(_API_RETRIES):
+        response = requests.post(
+            url, json=payload, timeout=_API_TIMEOUT, headers={"Authorization": f"Bearer {api_key}"}
+        )
+        if response.status_code == 429 or response.status_code >= 500:
+            if attempt == _API_RETRIES - 1:
+                response.raise_for_status()
+            retry_after = response.headers.get("Retry-After", "")
+            time.sleep(min(float(retry_after), 30) if retry_after.replace(".", "", 1).isdigit() else 2 ** (attempt + 1))
+            continue
+        response.raise_for_status()
+        return response.json()
+    raise RuntimeError("unreachable")
+
+
+class JinaEmbeddings(Embeddings):
+    """Jina embeddings API; query and passage vectors use their own task adapters, like nomic's prefixes."""
+
+    url = "https://api.jina.ai/v1/embeddings"
+
+    def __init__(self, model: str, api_key: str):
+        self.model = model
+        self.api_key = api_key
+
+    def _embed(self, texts: list[str], task: str) -> list[list[float]]:
+        body = _post_with_retry(self.url, self.api_key, {"model": self.model, "task": task, "input": texts})
+        return [item["embedding"] for item in sorted(body["data"], key=lambda item: item["index"])]
+
+    def embed_documents(self, texts: list[str]) -> list[list[float]]:
+        return self._embed(texts, "retrieval.passage")
+
+    def embed_query(self, text: str) -> list[float]:
+        return self._embed([text], "retrieval.query")[0]
+
+
+def _embeddings() -> Embeddings:
+    if EMBEDDING_PROVIDER == "jina":
+        if not JINA_API_KEY:
+            raise RuntimeError("EMBEDDING_PROVIDER=jina needs JINA_API_KEY (free key: https://jina.ai/embeddings/).")
+        return JinaEmbeddings(model=EMBEDDING_MODEL, api_key=JINA_API_KEY)
+    embedding_class = NomicEmbeddings if "nomic" in EMBEDDING_MODEL else OllamaEmbeddings
+    return embedding_class(model=EMBEDDING_MODEL, base_url=OLLAMA_BASE_URL)
+
+
+def _cohere_scores(question: str, texts: list[str]) -> list[float]:
+    """Relevance score (0..1) for every text, in input order, from Cohere Rerank."""
+    if not COHERE_API_KEY:
+        raise RuntimeError("RERANKER_PROVIDER=cohere needs COHERE_API_KEY (free trial key: https://dashboard.cohere.com/api-keys).")
+    body = _post_with_retry(
+        "https://api.cohere.com/v2/rerank", COHERE_API_KEY,
+        {"model": RERANKER_MODEL, "query": question, "documents": texts, "top_n": len(texts)},
+    )
+    scores = [0.0] * len(texts)
+    for result in body["results"]:
+        scores[result["index"]] = float(result["relevance_score"])
+    return scores
 
 
 def _product_ok(document: Document, products: set[str] | None) -> bool:
@@ -175,7 +249,7 @@ def _candidate_id(document: Document) -> str:
 def _get_reranker():
     """Lazy-load the cross-encoder once per process (double-checked so concurrent calls load it once)."""
     global _reranker
-    if not RERANKER_ENABLED or not _CROSS_ENCODER_AVAILABLE:
+    if not RERANKER_ENABLED or RERANKER_PROVIDER != "local" or not _CROSS_ENCODER_AVAILABLE:
         return None
     if _reranker is None:
         with _reranker_lock:
@@ -191,7 +265,7 @@ def _rerank_candidates(
     dense_candidates: list[Document],
     bm25_candidates: list[tuple[Document, float]],
 ) -> list[tuple[Document, float | None]]:
-    """Merge dense + BM25 candidates and rerank with the cross-encoder.
+    """Merge dense + BM25 candidates and rerank them (Cohere API or the local cross-encoder).
 
     Returns (document, score) pairs; score is None when the reranker is unavailable, in which
     case the relevance cutoff cannot be applied and the merged order is used.
@@ -207,14 +281,17 @@ def _rerank_candidates(
         return []
 
     try:
-        reranker = _get_reranker()
-        if reranker is None:
-            logger.warning("CrossEncoder not available; returning top %d candidates without reranking.", FINAL_EVIDENCE_K)
-            return [(doc, None) for doc in unique_docs[:FINAL_EVIDENCE_K]]
-        pairs = [(question, doc.page_content) for doc in unique_docs]
-        ce_scores: list[float] = reranker.predict(pairs).tolist()
+        if RERANKER_ENABLED and RERANKER_PROVIDER == "cohere":
+            ce_scores = _cohere_scores(question, [doc.page_content for doc in unique_docs])
+        else:
+            reranker = _get_reranker()
+            if reranker is None:
+                logger.warning("Reranker not available; returning top %d candidates without reranking.", FINAL_EVIDENCE_K)
+                return [(doc, None) for doc in unique_docs[:FINAL_EVIDENCE_K]]
+            pairs = [(question, doc.page_content) for doc in unique_docs]
+            ce_scores = reranker.predict(pairs).tolist()
     except Exception:
-        logger.exception("Cross-encoder reranking failed; falling back to first %d candidates.", FINAL_EVIDENCE_K)
+        logger.exception("Reranking failed; falling back to first %d candidates.", FINAL_EVIDENCE_K)
         return [(doc, None) for doc in unique_docs[:FINAL_EVIDENCE_K]]
 
     ranked = sorted(zip(unique_docs, ce_scores, strict=False), key=lambda x: x[1], reverse=True)
@@ -252,8 +329,7 @@ def initialize_vectorstore() -> None:
         if _vectorstore is not None:
             return
 
-        embedding_class = NomicEmbeddings if "nomic" in EMBEDDING_MODEL else OllamaEmbeddings
-        embeddings = embedding_class(model=EMBEDDING_MODEL, base_url=OLLAMA_BASE_URL)
+        embeddings = _embeddings()
         store = Chroma(
             collection_name=STABLE_COLLECTION,
             persist_directory=str(VECTORSTORE_PATH),
@@ -263,11 +339,17 @@ def initialize_vectorstore() -> None:
         manifest = _load_manifest()
         force_rebuild = os.getenv("FORCE_REBUILD_VECTORSTORE", "").lower() in {"1", "true", "yes"}
         chunker_changed = manifest.get("chunker_version") != CHUNKER_VERSION
+        # Vectors from different embedding models are not comparable (or even the same length).
+        embedder = f"{EMBEDDING_PROVIDER}:{EMBEDDING_MODEL}"
+        embedder_changed = manifest.get("embedder", "ollama:nomic-embed-text") != embedder
 
-        if force_rebuild or chunker_changed:
+        if force_rebuild or chunker_changed or embedder_changed:
             if chunker_changed:
                 logger.info("Chunker version changed (%s → %s); wiping and rebuilding all embeddings.",
                             manifest.get("chunker_version"), CHUNKER_VERSION)
+            if embedder_changed:
+                logger.info("Embedding model changed (%s → %s); wiping and rebuilding all embeddings.",
+                            manifest.get("embedder", "ollama:nomic-embed-text"), embedder)
             # Only delete+recreate if there are existing chunks — deleting a just-created collection
             # and immediately creating one with the same name triggers a Rust-backend NotFoundError.
             existing_chunks = manifest.get("files", {})
@@ -278,7 +360,7 @@ def initialize_vectorstore() -> None:
                     persist_directory=str(VECTORSTORE_PATH),
                     embedding_function=embeddings,
                 )
-            manifest = {"chunker_version": CHUNKER_VERSION, "files": {}}
+            manifest = {"chunker_version": CHUNKER_VERSION, "embedder": embedder, "files": {}}
 
         all_paths = _pdf_paths() + _md_paths()
         if not all_paths:
@@ -308,17 +390,20 @@ def initialize_vectorstore() -> None:
         if new_or_changed:
             new_names = {p.name for p in new_or_changed}
             new_children = [c for c in child_documents if c.metadata["source_file"] in new_names]
-            # shortcut: 1 doc per Ollama call to stay under 7 GB RAM; add sleep so runner can GC
-            for _i, _doc in enumerate(new_children):
+            # shortcut: 1 doc per Ollama call to stay under 7 GB RAM; add sleep so runner can GC.
+            # A hosted API takes batches, which keeps the request count inside free-tier rate limits.
+            batch_size = 1 if EMBEDDING_PROVIDER == "ollama" else 32
+            for _i in range(0, len(new_children), batch_size):
+                _batch = new_children[_i:_i + batch_size]
                 for _attempt in range(4):
                     try:
-                        store.add_documents([_doc], ids=[_doc.metadata["chunk_id"]])
+                        store.add_documents(_batch, ids=[d.metadata["chunk_id"] for d in _batch])
                         break
                     except Exception:
                         if _attempt == 3:
                             raise
                         time.sleep(5)
-                if _i % 20 == 0:
+                if batch_size == 1 and _i % 20 == 0:
                     time.sleep(1)  # let Ollama runner breathe every 20 chunks
             # Group chunk IDs by source file for the manifest
             by_file: dict[str, list[str]] = {}
@@ -332,6 +417,7 @@ def initialize_vectorstore() -> None:
             logger.info("All %d file(s) unchanged — reusing existing embeddings.", len(all_paths))
 
         manifest["chunker_version"] = CHUNKER_VERSION
+        manifest["embedder"] = embedder
         manifest["files"] = known_files
         _save_manifest(manifest)
 
@@ -385,7 +471,7 @@ def requested_documents(question: str) -> set[str] | None:
 def retrieve_evidence(
     question: str, source_files: set[str] | None = None, product: str | None = None
 ) -> list[tuple[Document, float | None]]:
-    """Hybrid dense + BM25 retrieval with cross-encoder rerank. Raises RetrievalError on failure.
+    """Hybrid dense + BM25 retrieval with rerank. Raises RetrievalError on failure.
 
     product limits evidence to that product's chunks plus general (product-agnostic) ones.
     """

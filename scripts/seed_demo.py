@@ -7,15 +7,12 @@ Usage (with Postgres running):
 Idempotent: skips users/apps that already exist.
 Assumes alembic upgrade head has already been run.
 
-Passwords are never stored in the repo. Set SEED_PASSWORD_ADMIN, SEED_PASSWORD_OFFICER and
-SEED_PASSWORD_BORROWER to choose them; otherwise a random password per role is generated and
-printed once at the end of the run.
+Each user gets the password from its "password" field in seed_data/users.json. These are public
+demo credentials: never reuse them for real accounts.
 """
 
 import csv
 import json
-import os
-import secrets
 import sys
 import uuid
 from datetime import datetime, timezone
@@ -41,15 +38,6 @@ MANIFEST_FILE = DATA / "document_manifest.csv"
 UPLOADS_DIR = ROOT / "uploads"
 
 ROLE_MAP = {"loan_officer": "officer", "borrower": "borrower", "admin": "admin"}
-
-
-def _role_passwords() -> dict[str, str]:
-    passwords = {}
-    for role in ("admin", "officer", "borrower"):
-        passwords[role] = os.getenv(f"SEED_PASSWORD_{role.upper()}") or (
-            secrets.token_urlsafe(9) + "aA1!"  # satisfies the register-time password policy
-        )
-    return passwords
 
 
 def _stub_pdf(path: Path) -> None:
@@ -78,8 +66,6 @@ def seed(db: Session) -> None:
 
     # ── 1. Users ─────────────────────────────────────────────────────────────
     email_to_id: dict[str, uuid.UUID] = {}
-    passwords = _role_passwords()
-    created_roles: set[str] = set()
 
     for u in users_raw:
         existing = db.execute(
@@ -103,13 +89,12 @@ def seed(db: Session) -> None:
             {
                 "id": uid,
                 "email": u["email"].lower(),
-                "pw": _pwd.hash(passwords[role]),
+                "pw": _pwd.hash(u["password"]),
                 "name": u["full_name"],
                 "role": role,
             },
         )
         email_to_id[u["email"]] = uid
-        created_roles.add(role)
         print(f"  created user {u['email']} ({role})")
 
     db.commit()
@@ -259,10 +244,7 @@ def seed(db: Session) -> None:
         )
 
     db.commit()
-    print("\nSeed complete.")
-    for role in sorted(created_roles):
-        source = "from env" if os.getenv(f"SEED_PASSWORD_{role.upper()}") else "generated"
-        print(f"  {role} password ({source}): {passwords[role]}")
+    print("\nSeed complete. Sign in with the emails and passwords in scripts/seed_data/users.json.")
 
 
 if __name__ == "__main__":

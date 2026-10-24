@@ -22,7 +22,6 @@ services:
       - .env
     environment:
       OLLAMA_BASE_URL: http://host.docker.internal:11434
-      OLLAMA_WARMUP_TIMEOUT: 20
       VECTORSTORE_PATH: /app/vectorstore
       AUDIT_LOG_PATH: /app/logs/audit.jsonl
       HF_HOME: /app/hf_cache
@@ -53,7 +52,9 @@ services:
       interval: 30s
       timeout: 10s
       retries: 5
-      start_period: 120s
+      # The first start embeds the whole knowledge base (~8 min on a laptop CPU); failures in this
+      # window don't count, and the service turns healthy on the first passing check.
+      start_period: 900s
 
   frontend:
     build:

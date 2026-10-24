@@ -52,23 +52,25 @@ def _startup_log(step: int, total: int, msg: str) -> None:
 
 
 async def _init_vectorstore_until_ready() -> None:
-    """Ping Ollama first (fail hard if not running), then load the vectorstore.
+    """Ping Ollama first when it is the embedder (fail hard if not running), then load the vectorstore.
     Self-heals ChromaDB UUID corruption by wiping the dir and rebuilding once."""
     import shutil
     import urllib.request
-    from app.config import OLLAMA_BASE_URL, VECTORSTORE_PATH
+
+    from app.config import EMBEDDING_PROVIDER, OLLAMA_BASE_URL, VECTORSTORE_PATH
 
     os.environ["VECTORSTORE_NO_PROMPT"] = "1"
 
     # Fast-fail: a clear error beats a silent retry loop.
-    try:
-        urllib.request.urlopen(f"{OLLAMA_BASE_URL}/api/tags", timeout=5)
-    except Exception:
-        raise RuntimeError(
-            f"\n\nOllama is not running at {OLLAMA_BASE_URL}.\n"
-            "Start it first:  ollama serve\n"
-            "Then pull the embedding model:  ollama pull nomic-embed-text\n"
-        )
+    if EMBEDDING_PROVIDER == "ollama":
+        try:
+            urllib.request.urlopen(f"{OLLAMA_BASE_URL}/api/tags", timeout=5)
+        except Exception:
+            raise RuntimeError(
+                f"\n\nOllama is not running at {OLLAMA_BASE_URL}.\n"
+                "Start it first:  ollama serve\n"
+                "Then pull the embedding model:  ollama pull nomic-embed-text\n"
+            )
 
     try:
         await run_in_threadpool(retrieval.initialize_vectorstore)
@@ -80,10 +82,13 @@ async def _init_vectorstore_until_ready() -> None:
         )
         if not _is_chroma_corrupt:
             logger.exception("Vectorstore init failed")
-            raise RuntimeError(
-                f"\n\nVectorstore init failed. Ollama is up at {OLLAMA_BASE_URL} but embedding failed.\n"
+            hint = (
+                f"Ollama is up at {OLLAMA_BASE_URL} but embedding failed.\n"
                 "Make sure the embedding model is pulled:  ollama pull nomic-embed-text\n"
+                if EMBEDDING_PROVIDER == "ollama"
+                else "Check JINA_API_KEY and your Jina free-token balance (see the log above).\n"
             )
+            raise RuntimeError(f"\n\nVectorstore init failed. {hint}")
 
     # ChromaDB collection UUID is out of sync with on-disk data (corrupt state).
     # Wipe the entire vectorstore directory and rebuild from scratch — once.
@@ -112,15 +117,18 @@ async def lifespan(application: FastAPI):
         raise
 
     # ── Step 2: Reranker model warm-up (heavy on first run) ─────────────────
-    _startup_log(2, 4, "Loading reranker model (may download ~90 MB on first run)...")
-    try:
-        await run_in_threadpool(retrieval._get_reranker)
-        _startup_log(2, 4, "Reranker model loaded ✓")
-    except Exception:
-        logger.warning("Reranker warm-up failed — will retry on first query")
+    if retrieval.RERANKER_PROVIDER == "local":
+        _startup_log(2, 4, "Loading reranker model (may download ~90 MB on first run)...")
+        try:
+            await run_in_threadpool(retrieval._get_reranker)
+            _startup_log(2, 4, "Reranker model loaded ✓")
+        except Exception:
+            logger.warning("Reranker warm-up failed — will retry on first query")
+    else:
+        _startup_log(2, 4, f"Reranker: {retrieval.RERANKER_PROVIDER} API ({retrieval.RERANKER_MODEL}) ✓")
 
-    # ── Step 3: Vectorstore + Ollama embeddings ──────────────────────────────
-    _startup_log(3, 4, "Connecting to Ollama + loading vectorstore...")
+    # ── Step 3: Vectorstore + embeddings ─────────────────────────────────────
+    _startup_log(3, 4, f"Loading vectorstore ({retrieval.EMBEDDING_PROVIDER} embeddings)...")
     await _init_vectorstore_until_ready()
     _startup_log(3, 4, "Vectorstore ready ✓")
 
