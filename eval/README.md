@@ -8,8 +8,8 @@ Two automated gates plus a manual review set.
 - `retrieval_eval.py` — runs the real hybrid retriever and reports **recall@3** and **MRR** (k is
   `FINAL_EVIDENCE_K`, the number of passages the answer model sees); exits 1 below
   `RECALL_THRESHOLD` (default 0.80). Needs `JINA_API_KEY` and `COHERE_API_KEY`; no LLM calls.
-- `questions.yaml` — 15 Promptfoo answer-level cases (facts, missing-policy handling, lender filtering,
-  guardrails, startup cold-start regression). Every case also runs the numeric-faithfulness check
+- `questions.yaml` — 9 Promptfoo answer-level cases (facts, missing-policy handling, lender filtering,
+  guardrails, off-topic refusal). Every case also runs the numeric-faithfulness check
   defined in `promptfooconfig.yaml`: each number in the answer must appear in the cited evidence or
   the question.
 - `check_pass_rate.py` — gates on the overall Promptfoo pass rate (`PASS_RATE_THRESHOLD`, default 0.9),

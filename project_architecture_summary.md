@@ -117,7 +117,7 @@ wiped and rebuilt once automatically.
   `rerank` span, `llm-generation` — with token usage on each generation; all inputs/outputs pass through
   the PII mask before export.
 - `eval/retrieval_eval.py` — recall@3 and MRR on 9 graded golden questions with gold pages (CI-gated).
-- `promptfooconfig.yaml` + `eval/questions.yaml` — 15 answer-level cases with a deterministic numeric
+- `promptfooconfig.yaml` + `eval/questions.yaml` — 9 answer-level cases with a deterministic numeric
   faithfulness check on every answer; CI gates on pass rate (`eval/check_pass_rate.py`).
 - `app/tests/` — unit tests (pre-qualification engine, guardrails, chunking, Jina/Cohere clients) and API
   integration tests against PostgreSQL.

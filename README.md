@@ -248,7 +248,7 @@ Open before the final demo:
   in-process background tasks, not a job queue.
 - The policy corpus is 5 HDFC PDFs (personal loan, business loan, credit card) + 4 HDFC/RBI
   MD files — not a full bank policy set; the evaluation sets are small (9 retrieval,
-  15 answer cases) and the faithfulness check covers numbers only.
+  9 answer cases) and the faithfulness check covers numbers only.
 
 ## Troubleshooting
 
