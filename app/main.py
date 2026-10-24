@@ -3,6 +3,7 @@ import json
 import logging
 import os
 import re
+import sys
 import time
 import uuid
 from collections.abc import AsyncIterator
@@ -37,6 +38,11 @@ from app.llm import start_usage_meter
 from app.models import User
 from app.routers import admin, applications, auth, mfa, officer, prequal
 from app.tracing import langfuse
+
+# Windows pipes and services default to cp1252, which cannot print the ✓ in the startup lines and crashed startup.
+for _stream in (sys.stdout, sys.stderr):
+    if hasattr(_stream, "reconfigure"):  # some runners replace or remove the standard streams
+        _stream.reconfigure(encoding="utf-8")
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 logger = logging.getLogger(__name__)

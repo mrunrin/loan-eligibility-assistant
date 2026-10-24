@@ -51,6 +51,9 @@ async def update_role(
     current_user: User = Depends(require_role("admin")),
 ):
     user = await _load_other_user(db, user_id, current_user, "change their own role")
+    # No super-admin: one admin cannot demote another (demoting first would also bypass the deactivation guard).
+    if user.role == "admin":
+        raise HTTPException(status_code=403, detail="Admins cannot change another admin's role.")
     old_role = user.role
     user.role = body.role
     record_db_event(
@@ -70,6 +73,9 @@ async def toggle_active(
     current_user: User = Depends(require_role("admin")),
 ):
     user = await _load_other_user(db, user_id, current_user, "deactivate themselves")
+    # One admin cannot lock another out; re-activating an inactive admin is still allowed.
+    if user.role == "admin" and user.is_active:
+        raise HTTPException(status_code=403, detail="Admins cannot deactivate other admins.")
     user.is_active = not user.is_active
     if not user.is_active:
         user.refresh_token_hash = None  # end the deactivated user's session immediately

@@ -52,12 +52,25 @@ if users is None:
     st.stop()
 
 for u in users:
-    col1, col2, col3, col4 = st.columns([3, 2, 2, 2])
+    col1, col2, col3, col4, col5 = st.columns([3, 2, 2, 2, 2])
     col1.write(f"**{u['full_name'] or u['email']}**  \n`{u['email']}`")
     col2.write(u["role"].title())
     col3.write("Active" if u["is_active"] else "Inactive")
-    if u["id"] == user.get("id"):
+    is_self = u["id"] == user.get("id")
+    # The API refuses to deactivate yourself or another admin; re-activating an inactive admin is allowed.
+    if not is_self and not (u["role"] == "admin" and u["is_active"]):
+        label = "Deactivate" if u["is_active"] else "Activate"
+        if col5.button(label, key=f"active_btn_{u['id']}", type="secondary" if u["is_active"] else "primary"):
+            active_resp = nav.api("POST", f"/admin/users/{u['id']}/active")
+            if active_resp is not None and active_resp.status_code == 200:
+                st.success(f"{u['email']} {'deactivated' if u['is_active'] else 'activated'}")
+                st.rerun()
+            elif active_resp is not None:
+                st.error(nav.detail(active_resp, "Could not change this account's status."))
+    if is_self:
         col4.caption("(you)")
+    elif u["role"] == "admin":
+        col4.caption("Admin (protected)")  # the API refuses role changes on other admins
     else:
         new_role = col4.selectbox(
             "Change role", ROLES, index=ROLES.index(u["role"]), key=f"role_sel_{u['id']}", label_visibility="collapsed",

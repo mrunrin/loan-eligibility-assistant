@@ -31,7 +31,7 @@ See [project_architecture_summary.md](project_architecture_summary.md) for the d
 - Officer queue: claim an application (`under_review`), then approve or reject with a mandatory reason;
   officers cannot decide their own applications; claims untouched for 1 h return to the queue.
 - The borrower is emailed on every status change; a fail email lists the failed rules in writing.
-- Admin dashboard: application/user statistics, role management, account activation.
+- Admin dashboard: application/user statistics, role management, account activation and deactivation. There is no super-admin: an admin cannot change the role of, or deactivate, themselves or another admin.
 
 **HDFC Loan Bot (RAG + tools)**
 - A small router model rewrites each message into a standalone question and picks a tool:

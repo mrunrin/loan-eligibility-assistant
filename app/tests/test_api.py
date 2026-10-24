@@ -425,6 +425,49 @@ async def test_admin_self_demotion_blocked_even_with_uppercase_uuid(ctx):
     assert r.status_code == 400
 
 
+@pytest.mark.parametrize("role", ["borrower", "officer"])
+async def test_admin_deactivation_blocks_access_until_reactivated(ctx, role):
+    _, admin = await ctx.user("admin")
+    target, target_headers = await ctx.user(role)
+    r = await ctx.client.post(f"/admin/users/{target.id}/active", headers=admin)
+    assert r.status_code == 200 and r.json()["is_active"] is False
+    assert (await ctx.client.get("/auth/me", headers=target_headers)).status_code == 401
+    r = await ctx.client.post(f"/admin/users/{target.id}/active", headers=admin)
+    assert r.status_code == 200 and r.json()["is_active"] is True
+    assert (await ctx.client.get("/auth/me", headers=target_headers)).status_code == 200
+
+
+async def test_admin_cannot_deactivate_self_or_another_admin(ctx):
+    from app.models import User
+
+    me, admin = await ctx.user("admin")
+    other, other_headers = await ctx.user("admin")
+    assert (await ctx.client.post(f"/admin/users/{me.id}/active", headers=admin)).status_code == 400
+    assert (await ctx.client.post(f"/admin/users/{other.id}/active", headers=admin)).status_code == 403
+    assert (await ctx.client.get("/auth/me", headers=other_headers)).status_code == 200
+    # An admin who is already inactive can still be let back in.
+    inactive, _ = await ctx.user("admin", is_active=False)
+    r = await ctx.client.post(f"/admin/users/{inactive.id}/active", headers=admin)
+    assert r.status_code == 200 and r.json()["is_active"] is True
+    async with ctx.Session() as s:
+        assert (await s.get(User, other.id)).is_active is True
+
+
+async def test_admin_cannot_demote_another_admin_but_can_promote(ctx):
+    from app.models import User
+
+    _, admin = await ctx.user("admin")
+    other, _ = await ctx.user("admin")
+    for role in ("borrower", "officer"):
+        r = await ctx.client.post(f"/admin/users/{other.id}/role", json={"role": role}, headers=admin)
+        assert r.status_code == 403
+    officer, _ = await ctx.user("officer")
+    r = await ctx.client.post(f"/admin/users/{officer.id}/role", json={"role": "admin"}, headers=admin)
+    assert r.status_code == 200 and r.json()["role"] == "admin"
+    async with ctx.Session() as s:
+        assert (await s.get(User, other.id)).role == "admin"
+
+
 async def test_pagination_limit_is_capped(ctx):
     _, headers = await ctx.user("admin")
     assert (await ctx.client.get("/admin/users", params={"limit": 10_000}, headers=headers)).status_code == 422

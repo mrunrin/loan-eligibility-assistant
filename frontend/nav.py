@@ -105,8 +105,17 @@ def detail(resp: requests.Response | None, default: str = "Something went wrong.
         return default
     value = body.get("detail", default) if isinstance(body, dict) else default
     if isinstance(value, list):  # FastAPI validation errors
-        return "\n".join(str(e.get("msg", "")).replace("Value error, ", "") for e in value) or default
+        messages = dict.fromkeys(_validation_message(e) for e in value)  # dedupe, keep order
+        return "\n".join(m for m in messages if m) or default
     return str(value)
+
+
+def _validation_message(error: dict) -> str:
+    # The email checker's own wording ("value is not a valid email address: An email address must
+    # have an @-sign.") is library-internal; every other message is the app's own hint text.
+    if (error.get("loc") or [""])[-1] == "email":
+        return "Enter a valid email address, like name@example.com."
+    return str(error.get("msg", "")).replace("Value error, ", "")
 
 
 def json_or_none(resp: requests.Response | None, ok: int = 200):
