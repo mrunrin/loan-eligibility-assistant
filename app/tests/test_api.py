@@ -295,6 +295,37 @@ async def test_prequal_rerun_twice_is_idempotent_not_500(ctx):
     assert len(rows) == 1
 
 
+async def test_case_summary_is_officer_only_ai_first_with_rules_fallback(ctx, monkeypatch):
+    from app import case_summary
+
+    _, borrower = await ctx.user()
+    _, officer = await ctx.user("officer")
+    _, admin = await ctx.user("admin")
+    app_id = await ctx.submitted_app(borrower)
+    url = f"/prequal/{app_id}/summary"
+    assert (await ctx.client.get(url, headers=borrower)).status_code == 403
+    assert (await ctx.client.get(url, headers=admin)).status_code == 403  # admins keep the plain rule breakdown
+
+    # Groq unavailable → plain rules summary, not cached.
+    monkeypatch.setattr(case_summary, "provider_ready", lambda: (False, "no key"))
+    body = (await ctx.client.get(url, headers=officer)).json()
+    assert body["ai"] is False and 1 <= len(body["lines"]) <= case_summary.MAX_LINES
+
+    # Groq available → one call, bullets parsed, and the second request is served from the cache.
+    calls = []
+
+    async def fake_groq(messages, **_):
+        calls.append(messages[0]["content"])
+        return "- Line one\n- Line two\n* Line three"
+
+    monkeypatch.setattr(case_summary, "provider_ready", lambda: (True, ""))
+    monkeypatch.setattr(case_summary, "groq_chat", fake_groq)
+    for _ in range(2):
+        body = (await ctx.client.get(url, headers=officer)).json()
+        assert body == {"ai": True, "lines": ["Line one", "Line two", "Line three"]}
+    assert len(calls) == 1
+
+
 async def test_prequal_rerun_cannot_reopen_a_decided_or_draft_application(ctx):
     _, borrower = await ctx.user()
     _, officer = await ctx.user("officer")

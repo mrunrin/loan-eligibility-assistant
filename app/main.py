@@ -313,7 +313,7 @@ async def ask(
             span.update(level="ERROR", status_message="ask failed")
             _charge(current_user, meter)
             return JSONResponse(status_code=503, content={
-                "answer": "HDFC Loan Bot could not complete that request. Please try again.",
+                "answer": "LoanMitra could not complete that request. Please try again.",
                 "source": "service unavailable",
                 "sources": [],
             })
@@ -424,6 +424,6 @@ async def ask_stream(request: Request, body: AskRequest, current_user: User = De
                         request_id=request_id, session_id=body.session_id, question=body.question, status="failed",
                         latency_ms=int((time.perf_counter() - started) * 1000), requested_provider="groq",
                     )
-                    yield _sse("error", {"message": "HDFC Loan Bot could not complete that request. Please try again."})
+                    yield _sse("error", {"message": "LoanMitra could not complete that request. Please try again."})
 
     return StreamingResponse(events(), media_type="text/event-stream", headers={"Cache-Control": "no-cache"})

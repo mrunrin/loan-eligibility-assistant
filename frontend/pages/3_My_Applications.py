@@ -36,7 +36,8 @@ STATUS_COLORS = {
     "withdrawn": "gray",
 }
 
-CHAT_STATUSES = {"pre_qual_fail", "manual_review", "under_review", "rejected"}
+# Approved applications get a fixed "you will hear from us by email" message instead of the chat.
+CHAT_STATUSES = {"pre_qual_pass", "manual_review", "pre_qual_fail", "under_review", "rejected"}
 
 if not apps and offset == 0:
     st.info("No applications yet. Click **+ New Application** to get started.")

@@ -150,7 +150,7 @@ if prompt:
             except requests.exceptions.ReadTimeout:
                 if status_box:
                     status_box.update(label="Timeout", state="error", expanded=False)
-                st.error("HDFC Loan Bot is still loading or generating. Please wait and try again.")
+                st.error("LoanMitra is still loading or generating. Please wait and try again.")
                 st.stop()
             except requests.RequestException:
                 st.error("The connection to the assistant was interrupted. Please try again.")

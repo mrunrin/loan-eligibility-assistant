@@ -119,3 +119,43 @@ This document is useful for post-issuance card-use questions. It is not the cred
 ## Notes for chatbot use
 
 Use current MITC and the actual card-specific schedule for current price/fee values.
+
+---
+
+---
+doc_id: hdfc_improve_credit_score
+title: HDFC Bank - How to Improve a CIBIL (Credit) Score
+publisher: HDFC Bank
+category: hdfc.general.credit_score
+source_url: https://www.hdfc.bank.in/blogs/personal-loan/7-smart-ways-to-improve-your-cibil-score
+retrieved_on: 2026-10-25
+source_date_or_version: HDFC Bank blog article "How to Increase CIBIL Score - 7 Smart Tips"; no date shown; retrieved 2026-10-25
+source_type: official webpage / paraphrased summary
+---
+
+# HDFC Bank - How to Improve a CIBIL (Credit) Score
+
+> **Provenance note:** This is a source-linked, retrieval-friendly summary paraphrased from the official page identified below. It is not a replacement for the official original. It is kept with the credit-card material because cards are where most people build a credit score, but it applies to every product (credit card, personal loan, business loan): lenders look at the same credit score for all of them.
+
+A credit score (CIBIL score) summarises how a person has handled loans and credit cards. HDFC Bank describes a CIBIL score of 700 or above as excellent; a lower score can make it harder to get a loan or card approved. If an application failed or scored low because of the credit score, the score can be improved over time with the habits below.
+
+## Seven ways to improve a credit score
+
+1. **Pay every EMI and credit card bill on time.** Late or missed payments lower the score. Setting payment reminders or auto-pay helps make sure no due date is missed.
+2. **Limit new debt.** Avoid applying for several loans at the same time, and repay an existing loan before taking another.
+3. **Keep a balanced credit mix.** Holding both secured credit (for example a home or car loan) and unsecured credit (for example a personal loan or credit card) is better than relying heavily on unsecured loans.
+4. **Apply for credit only when needed and affordable.** Frequent credit applications can signal financial instability to lenders.
+5. **Be careful with joint loans and guarantees.** A co-borrower or guarantor shares responsibility for repayment, so a missed payment by the main borrower can also lower the guarantor's score.
+6. **Check the credit report regularly and correct errors.** Mistakes such as a closed loan still shown as open, or outdated entries, can pull the score down; raise a dispute with the credit bureau to get them corrected.
+7. **Build credit history gradually.** A longer loan tenure with smaller EMIs can be easier to repay on time, and keeping spending steady when a credit limit is increased can help the score.
+
+## Official source
+
+- Publisher: HDFC Bank
+- Source page/document: https://www.hdfc.bank.in/blogs/personal-loan/7-smart-ways-to-improve-your-cibil-score
+- Retrieved / checked: 2026-10-25
+- Source date/version shown: no date shown on the page; retrieved 2026-10-25
+
+## Notes for chatbot use
+
+Use this section for questions such as "how can I improve my credit score", "why does my credit score matter" or "my application failed because of my credit score, what can I do". HDFC does not publish one universal minimum CIBIL cutoff; this portal's own pre-qualification threshold (650, with below 550 an automatic fail) comes from the borrower's application result, not from this page. Credit scores improve gradually, not immediately.

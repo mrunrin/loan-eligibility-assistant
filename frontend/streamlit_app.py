@@ -8,7 +8,7 @@ import nav
 import streamlit as st
 
 st.set_page_config(
-    page_title="HDFC Loan Portal",
+    page_title="LoanMitra Portal",
     page_icon="🏦",
     layout="centered",
     initial_sidebar_state="collapsed",
@@ -54,7 +54,7 @@ if st.session_state.get("access_token"):
 st.markdown(
     """
     <div style="text-align:center; padding: 2rem 0 1rem;">
-        <h1 style="font-size:2.4rem; margin-bottom:0.2rem;">🏦 HDFC Loan Portal</h1>
+        <h1 style="font-size:2.4rem; margin-bottom:0.2rem;">🏦 LoanMitra Portal</h1>
         <p style="color:gray; font-size:1rem;">Smarter lending, faster decisions</p>
     </div>
     """,

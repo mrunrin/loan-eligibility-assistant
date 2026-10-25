@@ -182,7 +182,7 @@ def _rule_emi_affordability(app: LoanApplication, _today: date) -> RuleResult:
 # Personal loan and credit card rules
 #
 # Knockout thresholds come from HDFC Bank's public eligibility pages in data/
-# (hdfc_personal_loan_eligibility.md, hdfc_credit_card_eligibility.md).
+# (data/loanmitra_personal_loan.md, data/loanmitra_credit_card.md).
 # Credit score and FOIR are portal policy: those pages state no universal CIBIL cutoff.
 # Weights: knockouts 30, credit score 35, FOIR 35 — so one scored failure lands in
 # manual review (65) and two land in fail (30).

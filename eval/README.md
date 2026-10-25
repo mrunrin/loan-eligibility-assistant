@@ -1,4 +1,4 @@
-# HDFC Loan Bot Evaluation
+# LoanMitra Evaluation
 
 Two automated gates plus a manual review set.
 

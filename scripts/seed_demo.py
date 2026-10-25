@@ -58,8 +58,8 @@ def _stub_pdf(path: Path) -> None:
 
 
 def seed(db: Session) -> None:
-    users_raw = json.loads(USERS_FILE.read_text())
-    apps_raw = json.loads(APPS_FILE.read_text())
+    users_raw = json.loads(USERS_FILE.read_text(encoding="utf-8"))
+    apps_raw = json.loads(APPS_FILE.read_text(encoding="utf-8"))
 
     with open(MANIFEST_FILE, newline="", encoding="utf-8-sig") as f:
         docs_raw = list(csv.DictReader(f))

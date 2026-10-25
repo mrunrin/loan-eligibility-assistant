@@ -26,7 +26,7 @@ async def _send(to_email: str, subject: str, body_html: str) -> None:
         return
     msg = MIMEMultipart("alternative")
     msg["Subject"] = subject
-    msg["From"] = f"HDFC Bank Bot <{SMTP_FROM or SMTP_USER}>"
+    msg["From"] = f"LoanMitra <{SMTP_FROM or SMTP_USER}>"
     msg["To"] = to_email
     msg.attach(MIMEText(body_html, "html"))
     try:
@@ -43,15 +43,15 @@ async def _send(to_email: str, subject: str, body_html: str) -> None:
 
 
 async def send_account_locked_email(to_email: str, full_name: str, minutes: int) -> None:
-    await _send(to_email, "Your HDFC Loan Portal account was locked", f"""<html><body style="font-family:sans-serif;max-width:480px;margin:auto;padding:24px">
+    await _send(to_email, "Your LoanMitra Portal account was locked", f"""<html><body style="font-family:sans-serif;max-width:480px;margin:auto;padding:24px">
 <h2 style="color:#b42318">Account temporarily locked</h2>
 <p>Hi {html.escape(full_name) or 'there'},</p>
 <p>We locked your account for <strong>{minutes} minutes</strong> after several failed sign-in attempts.</p>
 <p>If this was you, wait and try again. If it was not, someone may know your email address; consider
 changing your password and turning on two-factor authentication under Security Settings.</p>
 <hr style="border:none;border-top:1px solid #eee;margin-top:32px">
-<p style="color:#bbb;font-size:11px">HDFC Loan Portal · Smarter lending, faster decisions<br>
-Student capstone demo — not an official communication from HDFC Bank Ltd.</p>
+<p style="color:#bbb;font-size:11px">LoanMitra Portal · Smarter lending, faster decisions<br>
+Student capstone demo — not affiliated with or endorsed by HDFC Bank Ltd.</p>
 </body></html>""")
 
 
@@ -81,14 +81,14 @@ async def send_status_email(to_email: str, full_name: str, title: str, status: s
 {f"<p>Reasons:</p><ul>{items}</ul>" if items else ""}
 {appeal}
 <hr style="border:none;border-top:1px solid #eee;margin-top:32px">
-<p style="color:#bbb;font-size:11px">HDFC Loan Portal · Smarter lending, faster decisions<br>
-Student capstone demo — not an official communication from HDFC Bank Ltd.</p>
+<p style="color:#bbb;font-size:11px">LoanMitra Portal · Smarter lending, faster decisions<br>
+Student capstone demo — not affiliated with or endorsed by HDFC Bank Ltd.</p>
 </body></html>""")
 
 
 async def send_verification_email(to_email: str, full_name: str, otp: str) -> None:
-    await _send(to_email, "Your HDFC Loan Portal verification code", f"""<html><body style="font-family:sans-serif;max-width:480px;margin:auto;padding:24px">
-<h2 style="color:#1a56db">HDFC Loan Portal — Email Verification</h2>
+    await _send(to_email, "Your LoanMitra Portal verification code", f"""<html><body style="font-family:sans-serif;max-width:480px;margin:auto;padding:24px">
+<h2 style="color:#1a56db">LoanMitra Portal — Email Verification</h2>
 <p>Hi {html.escape(full_name) or 'there'},</p>
 <p>Use the code below to verify your email address. It expires in <strong>15 minutes</strong>.</p>
 <div style="margin:32px auto;text-align:center;background:#f3f6ff;border-radius:10px;padding:24px;width:fit-content">
@@ -97,6 +97,6 @@ async def send_verification_email(to_email: str, full_name: str, otp: str) -> No
 <p style="color:#666">Enter this code on the login page to verify your email.</p>
 <p style="color:#999;font-size:11px">If you didn't create this account, ignore this email.</p>
 <hr style="border:none;border-top:1px solid #eee;margin-top:32px">
-<p style="color:#bbb;font-size:11px">HDFC Loan Portal · Smarter lending, faster decisions<br>
-Student capstone demo — not an official communication from HDFC Bank Ltd.</p>
+<p style="color:#bbb;font-size:11px">LoanMitra Portal · Smarter lending, faster decisions<br>
+Student capstone demo — not affiliated with or endorsed by HDFC Bank Ltd.</p>
 </body></html>""")

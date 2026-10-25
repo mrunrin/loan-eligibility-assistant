@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
 from app.audit import record_db_event
+from app.case_summary import case_summary
 from app.database import get_db
 from app.deps import get_current_user, require_role
 from app.models import LoanApplication, PreQualificationResult, User
@@ -50,6 +51,28 @@ async def run_prequal_endpoint(
         await db.rollback()
         raise HTTPException(status_code=409, detail="Pre-qualification was updated concurrently; retry.") from exc
     return {"score": prequal.score, "decision": prequal.decision, "rule_breakdown": prequal.rule_breakdown}
+
+
+@router.get("/{app_id}/summary")
+async def get_case_summary(
+    app_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role("officer")),
+):
+    """5–6 line AI summary of the pre-qualification result for the reviewing officer (rules text as fallback).
+
+    Officers only: admins keep the plain rule breakdown.
+    """
+    app = (await db.execute(select(LoanApplication).where(LoanApplication.id == app_id))).scalar_one_or_none()
+    if not app:
+        raise HTTPException(status_code=404, detail="Application not found.")
+    assert_can_view(app, current_user)
+    record = (
+        await db.execute(select(PreQualificationResult).where(PreQualificationResult.application_id == app_id))
+    ).scalar_one_or_none()
+    if not record:
+        raise HTTPException(status_code=404, detail="No pre-qualification result found.")
+    return await case_summary(app, record)
 
 
 @router.get("/{app_id}")

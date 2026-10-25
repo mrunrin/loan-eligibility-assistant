@@ -151,7 +151,7 @@ All questions in a thread share one `session_id`. **Before** = the same build wi
 
 1. **"what docs do i need to submit"**: the rewrite is correct, but retrieval ranked agreement clauses above the HDFC documentation pages (now merged into `hdfc_*.md`). The question is also ambiguous (personal vs business loan). Partly addressed (2026-10-23): when the borrower selects an application in the chat, search is limited to that product's chunks plus general rules. Still open: a `product` slot in the router for questions asked without a selection, and retrieval recall on documentation queries (`eval/golden_retrieval.yaml`).
 2. **"need money urgently, fast approval"**: "does not specify" is truthful (no fast-track process exists) but unhelpful. Production fix: an ops FAQ document (processing SLAs, expedite policy). This is a content gap, not a code gap.
-3. **SLA / timeline questions** get "no fixed review timeline is defined", because the portal genuinely defines none. Add real SLAs to `STATUS_GUIDE` once the business sets them.
+3. **SLA / timeline questions** are answered from demo service targets in `STATUS_GUIDE`: "a few working days" until an officer picks the application up, "4–7 working days" for a decision once under review. They are worded as "usually" because they are this portal's targets, not HDFC policy; replace them with real SLAs once the business sets them.
 4. **History retention**: `chat_messages` grows without limit. Production: a retention job (e.g. 90 days) and a rolling summary once a session exceeds `MAX_HISTORY_MESSAGES`.
 5. The router sees up to 6 prior messages (400 chars each). Very long sessions rely on the recent window only.
 

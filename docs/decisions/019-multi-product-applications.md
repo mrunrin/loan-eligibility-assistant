@@ -43,7 +43,7 @@ Applies to every product: a credit score below 550 is also a knockout, and rules
 
 - **Knockout rules:** a failed knockout rule makes the decision `fail` whatever the score. Without knockouts, a self-employed applicant would score 95/100 and pass a product they are not eligible for. Seed application APP-2026-019 shows this case.
 - **Weights:** the knockout rules together are worth 30 points. If all knockouts pass, one failed credit rule gives a score of 65, which is `manual_review`. Two failed credit rules give 30, which is `fail`. The bands (70 / 50) are the same as for business loans.
-- **Portal policy vs bank policy:** credit score and FOIR are labelled portal policy. The HDFC eligibility sources (now merged into `data/hdfc_personal_loan.md` and `data/hdfc_credit_card.md`) both state that HDFC publishes **no universal CIBIL cutoff**, so these thresholds are not presented as bank rules.
+- **Portal policy vs bank policy:** credit score and FOIR are labelled portal policy. The HDFC eligibility sources (now merged into `data/loanmitra_personal_loan.md` and `data/loanmitra_credit_card.md`) both state that HDFC publishes **no universal CIBIL cutoff**, so these thresholds are not presented as bank rules.
 - **Credit limit:** the credit card application asks for no amount. The HDFC page says the lender sets the limit from income, and inventing a limit formula would be fabricated policy.
 
 ### Chat assistant and frontend

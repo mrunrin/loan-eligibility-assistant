@@ -1,8 +1,11 @@
-# HDFC Loan Portal + HDFC Loan Bot
+# LoanMitra Portal + LoanMitra Assistant
+
+> **Deep technical reference:** [TECHNICAL_README.md](TECHNICAL_README.md) — every technology in the stack, its
+> configuration, design decisions, data model, API and evaluation, organised for building presentation slides.
 
 A loan origination portal with a grounded AI policy assistant. Borrowers apply for a business loan,
 personal loan or credit card through a multi-step form, a deterministic rule engine pre-qualifies each
-application, loan officers claim and decide applications, and admins manage users. **HDFC Loan Bot**
+application, loan officers claim and decide applications, and admins manage users. **LoanMitra**
 answers questions from public HDFC Bank and RBI documents using hybrid retrieval-augmented generation,
 with inline clause citations, and can also explain the borrower's own application status or calculate an EMI.
 
@@ -25,15 +28,16 @@ See [project_architecture_summary.md](project_architecture_summary.md) for the d
 - Three products (business loan, personal loan, credit card), each with its own 4-step form, required
   document checklist and pre-qualification rules.
 - Document upload (PDF/JPG/PNG, content-checked, 10 MB cap, SHA-256 tamper check on every download), with in-page image and PDF preview.
-- Explainable pre-qualification: weighted rules plus hard knock-out rules → pass / manual review / fail,
-  with a per-rule breakdown; self-reported figures are marked *unverified*.
+- Explainable pre-qualification: weighted rules plus hard knock-out rules → pass / manual review / fail;
+  self-reported figures are marked *unverified*. Borrowers get the reasons from the assistant ("Ask here") and
+  the status email, officers see an AI-generated case summary, admins see the full per-rule breakdown.
 - Borrowers can appeal a pre-qualification fail (moves it to manual review) and withdraw before a decision.
 - Officer queue: claim an application (`under_review`), then approve or reject with a mandatory reason;
   officers cannot decide their own applications; claims untouched for 1 h return to the queue.
 - The borrower is emailed on every status change; a fail email lists the failed rules in writing.
 - Admin dashboard: application/user statistics, role management, account activation and deactivation. There is no super-admin: an admin cannot change the role of, or deactivate, themselves or another admin.
 
-**HDFC Loan Bot (RAG + tools)**
+**LoanMitra (RAG + tools)**
 - A small router model rewrites each message into a standalone question and picks a tool:
   policy search, the borrower's own application record, or an EMI calculator.
 - Column-aware PDF ingestion with cross-page table merging and clause-aware chunking; every chunk carries

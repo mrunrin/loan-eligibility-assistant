@@ -67,11 +67,12 @@ Fields:
 STATUS_GUIDE = {
     "draft": ("Not submitted yet.", "Complete all fields and submit it from My Applications; pre-qualification runs automatically on submit."),
     "submitted": ("Submitted; automated pre-qualification is running.", "Check back shortly for the pre-qualification result."),
-    "pre_qual_pass": ("Passed automated pre-qualification and is waiting for a loan officer to pick it up.", "No action needed; an officer reviews it next. The portal does not define a fixed review timeline."),
-    "manual_review": ("Pre-qualification score was borderline, so it is waiting for a loan officer's manual review.", "No action needed; an officer reviews it next. The portal does not define a fixed review timeline."),
-    "pre_qual_fail": ("Did not pass automated pre-qualification, so it will not go to a loan officer. The FAILED rules below are the reasons.", "Address the failed criteria, then submit a new application from the Apply page."),
-    "under_review": ("A loan officer is reviewing it now.", "Wait for the officer's decision; it will appear on My Applications."),
-    "approved": ("Approved by a loan officer.", "The lender will contact you about the loan agreement and disbursement."),
+    # Timelines are this portal's service targets (demo), not HDFC policy, so they are worded as "usually".
+    "pre_qual_pass": ("Passed automated pre-qualification and has been sent to a loan officer.", "No action needed. You will hear back soon; an officer usually picks it up within a few working days."),
+    "manual_review": ("Pre-qualification score was borderline (or the result was appealed), so it has been sent to a loan officer for manual review.", "No action needed. You will hear back soon; an officer usually picks it up within a few working days."),
+    "pre_qual_fail": ("Did not pass automated pre-qualification. The FAILED rules below are the reasons.", "Either appeal from the application page with a written reason (it then goes to a loan officer for manual review), or address the failed criteria and submit a new application from the Apply page."),
+    "under_review": ("A loan officer is reviewing it now.", "Wait for the officer's decision; it usually takes 4–7 working days and will appear on My Applications."),
+    "approved": ("Approved by a loan officer.", "You will hear from us in detail by email about the next steps (loan agreement and disbursement)."),
     "rejected": ("Rejected by a loan officer. The officer's notes, if any, give the reason.", "You can submit a new application from the Apply page. If you believe the decision was wrong, raise a complaint (see the policy passages for how)."),
     "withdrawn": ("Withdrawn by you.", "You can submit a new application from the Apply page."),
 }

@@ -1,8 +1,8 @@
-# Architecture Summary: HDFC Loan Portal + HDFC Loan Bot
+# Architecture Summary: LoanMitra Portal + LoanMitra Assistant
 
 ## Overview
 A loan origination portal (business loan, personal loan and credit card applications, deterministic
-pre-qualification, officer review, admin) with **HDFC Loan Bot**, a grounded assistant that answers from the
+pre-qualification, officer review, admin) with **LoanMitra**, a grounded assistant that answers from the
 policy knowledge base — 5 HDFC PDFs (personal and business loan agreements, credit card agreement, MITC and FAQ) + 4 HDFC/RBI
 MD files — with clause-level citations, and can also explain the borrower's own application or compute an EMI.
 Student capstone demo; not an official HDFC Bank service.
@@ -13,9 +13,13 @@ Student capstone demo; not an official HDFC Bank service.
 - `frontend/streamlit_app.py` — login (password → TOTP step, or first-login 2FA enrollment for staff),
   email verification, FAQ.
 - `frontend/pages/` — Register, My Applications, Apply (product picker + 4-step form with required-document
-  checklist), Application Detail (rule breakdown, authorised document preview (image / PDF) and download, appeal, withdraw, officer
-  decision), Officer Queue (claim / take over → decide), Admin Dashboard (stats, roles, activate/deactivate;
-  other admins shown as protected), AI Loan Assistant, Security (2FA, account deletion).
+  checklist), Application Detail (score, authorised document preview (image / PDF) and download, appeal,
+  withdraw, officer decision; the pre-qual explanation depends on the role — borrower: a 🤖 "Ask here" card that
+  opens the assistant on this application (approved: a fixed "you will hear from us by email" message);
+  officer: an "AI generated summary" dropdown; admin: the full rule breakdown), Officer Queue (claim / take over
+  → decide; "Approved / Rejected by me" tabs), Admin Dashboard (stats, roles, activate/deactivate; other admins
+  shown as protected), AI Loan Assistant, Security (2FA, account deletion). My Applications shows a Chat button
+  for every status except draft, approved and withdrawn.
 - `frontend/nav.py` — the single place for `API_URL`, the authenticated `api()` helper (bearer token,
   forwards the client IP, one refresh-and-retry on 401, backend-down handling), page/role guards, sidebar,
   logout and the 5-minute browser idle timer.
@@ -60,6 +64,11 @@ wiped and rebuilt once automatically.
   SHA-256 hash checked on each download.
 - Pre-qualification (`app/prequal.py`): per-product weighted rules plus knockout rules; self-reported inputs
   are flagged `unverified` in the stored JSONB breakdown.
+- Officer case summary (`app/case_summary.py`, `GET /prequal/{id}/summary`, officers only): one Groq call turns
+  the rule results (amounts banded) into 5–6 lines, cached per pre-qual run, with a plain rules summary as the
+  fallback. It explains the result; it never changes the score or the decision.
+- The assistant's application context gives each status a meaning, a next step and a typical timeline
+  ("a few working days" until an officer picks it up, "4–7 working days" for a decision under review).
 
 ## 4. Security model
 - bcrypt passwords; JWT access (5 min) + rotating refresh (1 hour, hash stored; reuse revokes the session); every token carries `iss`/`aud`.

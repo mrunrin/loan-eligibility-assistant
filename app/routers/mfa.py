@@ -28,7 +28,7 @@ from app.routers.auth import lock_account, login_event
 
 router = APIRouter(prefix="/auth/2fa", tags=["mfa"])
 
-APP_NAME = "HDFC Loan Portal"
+APP_NAME = "LoanMitra Portal"
 
 
 def _qr_base64(uri: str) -> str:

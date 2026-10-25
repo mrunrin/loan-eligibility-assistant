@@ -1,4 +1,4 @@
-# HDFC Loan Bot Evaluation Questions
+# LoanMitra Evaluation Questions
 
 Use this set for manual demo testing and Promptfoo coverage. Record actual outputs after running the Streamlit UI or `/ask` endpoint.
 

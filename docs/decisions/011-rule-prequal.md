@@ -42,7 +42,7 @@ An LLM might miscount a credit score, hallucinate a regulatory threshold, or pro
 - Officers can re-run pre-qual on a submitted application if the applicant updates their data.
 - Submit is refused until the required fields and the product's required documents are present (422 lists what is missing).
 - A `pre_qual_fail` is not a dead end: the borrower is emailed the failed rules in writing (RBI Fair Practices Code) and can appeal with a written reason, which moves the application to `manual_review` for an officer.
-- The `rule_breakdown` JSONB gives the frontend enough detail to show a per-rule progress bar.
+- The `rule_breakdown` JSONB is not shown as a raw list any more. Borrowers are sent to the AI assistant ("Ask here"), which reads it. Loan officers see a 5–6 line **AI summary** of it in an "AI generated summary" dropdown (`GET /prequal/{id}/summary`, officers only, `app/case_summary.py`); admins keep the plain rule breakdown: one Groq call over the rule results with amounts banded, cached per pre-qual run, labelled "AI can make mistakes", and falling back to a plain rules summary when Groq is unavailable. The summary explains; it never changes the score or the decision, which stay rule-based.
 
 ## Production path
 

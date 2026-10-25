@@ -6,8 +6,8 @@
 # The previous 65-question set covered only the 4 original PDFs.
 documents:
   R: "rbi_regulations.md"
-  PM: "hdfc_personal_loan.md"
-  BM: "hdfc_business_loan.md"
+  PM: "loanmitra_personal_loan.md"
+  BM: "loanmitra_business_loan.md"
   M: "cc-mitc.pdf"
 
 questions:
@@ -24,7 +24,7 @@ questions:
   - {q: "What happens if I use less than 30% of my HDFC Dropline Overdraft limit?", gold: [[BM, 1]]}
 
   # ── Hard ─────────────────────────────────────────────────────────────────
-  # Distractor: hdfc_personal_loan.md has the same 4%/3%/2% foreclosure table. Proves product disambiguation.
+  # Distractor: loanmitra_personal_loan.md has the same 4%/3%/2% foreclosure table. Proves product disambiguation.
   - {q: "Is there a foreclosure charge on a ₹30 lakh fixed-rate HDFC business loan taken by a micro enterprise?", gold: [[BM, 1]]}
   # Distractor: the cardmember agreement uses the legacy term "penal interest". Proves the regulator rule wins.
   - {q: "Can a lender charge interest on top of penal interest?", gold: [[R, 1]]}

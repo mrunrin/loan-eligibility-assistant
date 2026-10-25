@@ -196,7 +196,7 @@ def _prompt(
         _inert(conversation_context), _inert(question), _inert(interpreted)
     )
     return f"""
-You are HDFC Loan Bot, a banking loan eligibility assistant.
+You are LoanMitra, a banking loan eligibility assistant.
 
 Grounding rules:
 - Answer only from the policy passages inside <policy_context> and, when present, the application data inside <application_context>. Do not add advice, assumptions, banking best practices, or general lending knowledge.

@@ -1,4 +1,4 @@
-description: "HDFC Loan Bot RAG Quality Gate"
+description: "LoanMitra RAG Quality Gate"
 
 providers:
   - id: "http"

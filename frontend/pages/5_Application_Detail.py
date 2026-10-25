@@ -68,6 +68,11 @@ for column, heading, items in ((col1, left_title, left), (col2, "Financial Detai
         for label, value in items:
             st.write(f"- **{label}:** {value}")
 
+is_owner = user.get("role") == "borrower"
+# Borrowers get the reasons from the AI assistant (and the status email), not a rule list.
+ASK_BOT_STATUSES = {"pre_qual_pass", "manual_review", "pre_qual_fail", "under_review", "rejected"}
+APPROVED_MESSAGE = "🎉 Your application has been approved. You will hear from us in detail by email about the next steps."
+
 st.subheader("Pre-Qualification Result")
 pq = nav.json_or_none(nav.api("GET", f"/prequal/{app_id}"))
 if pq:
@@ -75,7 +80,32 @@ if pq:
     color = "green" if decision == "pass" else ("orange" if decision == "manual_review" else "red")
     st.markdown(f"**Score:** {score}/100 — :{color}[{decision.upper().replace('_', ' ')}]")
     st.progress(min(max(score, 0), 100) / 100)
-    if pq.get("rule_breakdown"):
+    if is_owner:
+        if app["status"] == "approved":
+            st.success(APPROVED_MESSAGE)
+        elif app["status"] in ASK_BOT_STATUSES:
+            with st.container(border=True):
+                bot, text, ask = st.columns([1, 8, 2], vertical_alignment="center")
+                bot.markdown("<div style='font-size:2.4rem;text-align:center'>🤖</div>", unsafe_allow_html=True)
+                text.markdown("**Want to know why you got this result, or what happens next?**  \n"
+                              "Ask the AI Loan Assistant. It reads this application's results and explains them.")
+                if ask.button("Ask here", type="primary", use_container_width=True, key="ask_bot"):
+                    st.session_state["chat_app_id"] = app_id
+                    st.session_state["chat_app_name"] = app.get("title") or "Untitled"
+                    st.switch_page("pages/8_Chat_Assistant.py")
+    elif user.get("role") == "officer":
+        # Loan officers: an AI summary of the rule results, generated on page load and shown in a dropdown
+        # (the backend falls back to a plain rules summary when the AI is unavailable).
+        with st.spinner("Summarising this application..."):
+            summary = nav.json_or_none(nav.api("GET", f"/prequal/{app_id}/summary", timeout=60))
+        if summary:
+            with st.expander("✨ AI generated summary" if summary.get("ai") else "Summary"):
+                if not summary.get("ai"):
+                    st.caption("AI summary unavailable right now; this is the plain rules summary.")
+                st.markdown("\n".join(f"- {line}" for line in summary["lines"]))
+                if summary.get("ai"):
+                    st.caption("⚠️ AI can make mistakes. Please check the relevant documents before deciding.")
+    elif pq.get("rule_breakdown"):
         with st.expander("Rule Breakdown"):
             for rule in pq["rule_breakdown"]:
                 icon = "✅" if rule["passed"] else "❌"
@@ -148,12 +178,11 @@ if app.get("appeal_reason") and user.get("role") in ("officer", "admin"):
     st.subheader("Borrower's Appeal")
     st.info(app["appeal_reason"])
 
-is_owner = user.get("role") == "borrower"
 if is_owner and app["status"] == "pre_qual_fail":
     st.divider()
     st.subheader("Appeal this result")
-    st.caption("The reasons are listed under Rule Breakdown above. Explain what they miss, and a loan officer "
-               "will review your application manually.")
+    st.caption("Ask the AI Loan Assistant above why it failed (the reasons are also in the email we sent you). "
+               "Explain what they miss, and a loan officer will review your application manually.")
     with st.form("appeal_form"):
         reason = st.text_area("Your reason (at least 20 characters)", max_chars=2000)
         if st.form_submit_button("Send appeal", type="primary"):

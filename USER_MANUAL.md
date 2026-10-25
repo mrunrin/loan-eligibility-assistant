@@ -1,4 +1,4 @@
-# User Manual — Run HDFC Loan Portal Locally
+# User Manual — Run LoanMitra Portal Locally
 
 Step-by-step guide for anyone who clones this repository and wants the backend (FastAPI) and frontend
 (Streamlit) running on their own machine. Commands are for **Windows PowerShell**; macOS/Linux equivalents
@@ -271,9 +271,9 @@ Open **http://localhost:8501**.
 
 | As | What to do |
 |---|---|
-| **New borrower** | Register → verify email (code by email, or the dev-mode button) → log in → Apply (pick a product, fill 4 steps, upload the required documents) → see the pre-qualification result → ask the AI Loan Assistant "why was my application rejected?" or "EMI for 5 lakh at 12% for 3 years" |
+| **New borrower** | Register → verify email (code by email, or the dev-mode button) → log in → Apply (pick a product, fill 4 steps, upload the required documents) → see the pre-qualification result → click 🤖 **Ask here** on the application page and ask "why did my application fail?", "how long will it take?" or "how can I improve my credit score?" → in the AI Loan Assistant also try "EMI for 5 lakh at 12% for 3 years" |
 | **Seeded borrower** | Log in with a borrower from `scripts/seed_data/users.json`; their applications are already there |
-| **Officer** | Log in → scan the QR code with your authenticator app (first login only) → Officer Queue → Start review → approve or reject with a reason |
+| **Officer** | Log in → scan the QR code with your authenticator app (first login only) → Officer Queue → Start review → open the **AI generated summary** and the documents → approve or reject with a reason |
 | **Admin** | Same 2FA enrollment → Admin Dashboard: statistics, users, role changes, Activate/Deactivate for borrowers and officers. Other admins show "Admin (protected)" and cannot be changed from the dashboard |
 
 Good to know:
