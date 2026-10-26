@@ -17,6 +17,8 @@ import yaml
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
+# Before app imports create the Langfuse client: eval traces stay out of the real-traffic dashboards.
+os.environ.setdefault("LANGFUSE_TRACING_ENVIRONMENT", "eval")
 
 from app.retrieval import FINAL_EVIDENCE_K, initialize_vectorstore, retrieve_evidence  # noqa: E402
 

@@ -105,11 +105,14 @@ jobs:
       - name: Run Promptfoo evaluation
         # --no-write: skip promptfoo's local SQLite history (0.102.0 crashes saving an eval there:
         # FOREIGN KEY constraint failed). -o still writes the results file the gate reads.
-        run: npx promptfoo@0.102.0 eval --no-cache --no-write -o eval/promptfoo_results.json || true
+        # -j 1: one request at a time, so the measured latency is not inflated by the tests queueing on each other.
+        run: npx promptfoo@0.102.0 eval --no-cache --no-write -j 1 -o eval/promptfoo_results.json || true
 
-      - name: Gate on promptfoo pass rate
+      - name: Gate on promptfoo pass rate and answer latency
         env:
           PASS_RATE_THRESHOLD: "0.9"
+          # Generous on purpose: free-tier APIs from a shared CI runner vary; this catches a real slowdown, not noise.
+          LATENCY_P95_MS: "30000"
         run: python eval/check_pass_rate.py eval/promptfoo_results.json
 
       - name: Backend log on failure

@@ -51,6 +51,7 @@ Applies to every product: a credit score below 550 is also a knockout, and rules
 - `LoanApplication.title` (for example "Personal Loan · Infosys" or "Credit Card") is now the display name in My Applications, the officer queue and the chat selector. The frontend no longer reads `business_name` to label an application.
 - In the assistant's application context, failed knockout rules are marked "hard eligibility requirement". This stops the bot from advising someone to improve something they cannot change, such as their age.
 - The Apply page starts with a product picker, then shows a 4-step form for the chosen product. The product can be changed only before the draft is saved.
+- Later (migration `013`): optional product preferences in one JSONB `preferences` column instead of ten more nullable columns. They are fields a real application form asks before a decision (facility type, tenure, card type, add-on card, Credit Protect, ...), each chosen because the policy documents answer the question it raises. They are validated against fixed values, never scored, and included in the assistant's application context.
 
 ## Verification
 

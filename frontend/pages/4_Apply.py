@@ -1,6 +1,7 @@
 from datetime import date
 
 import nav
+import preferences
 import streamlit as st
 
 PAGE = "pages/4_Apply.py"
@@ -152,6 +153,47 @@ def _money_input(label: str, key: str, step_size: float, help_text: str | None =
     return st.number_input(label, min_value=0.0, step=step_size, value=float(data.get(key) or 0.0), help=help_text)
 
 
+def _preference_inputs() -> dict:
+    """Optional product choices; the help text suggests the policy question each one leads to."""
+    saved = data.get("preferences") or {}
+    ask = preferences.ASK
+
+    def choice(label: str, key: str, question: str):
+        options = preferences.CHOICES[key]
+        keys = list(options)
+        return st.selectbox(
+            label, keys, format_func=options.get, placeholder="Select (optional)",
+            index=keys.index(saved[key]) if saved.get(key) in keys else None, help=ask + question,
+        )
+
+    def tick(label: str, key: str, question: str) -> bool:
+        return st.checkbox(label, value=bool(saved.get(key)), help=ask + question)
+
+    st.markdown("**Product preferences** (optional; they do not change your pre-qualification score)")
+    if product == "personal_loan":
+        return {
+            "employer_category": choice("Employer Category", "employer_category",
+                                        "Does my employer type affect personal loan eligibility?"),
+            "credit_protect": tick("Add Credit Protect insurance", "credit_protect",
+                                   "Is Credit Protect insurance compulsory, and what does it cover?"),
+        }
+    if product == "business_loan":
+        return {
+            "facility_type": choice("Facility Type", "facility_type", "What is the Dropline Overdraft facility and how is it charged?"),
+            "industry": choice("Industry", "industry", "What documents do I need for a business loan as a trader?"),
+            "tenure_months": st.slider("Tenure (months)", 12, 48, int(saved.get("tenure_months") or 36), step=6,
+                                       help=ask + "What is the maximum tenure for a business loan?"),
+            "balance_transfer": tick("I am transferring an existing business loan from another lender", "balance_transfer",
+                                     "Can I transfer my existing business loan from another lender?"),
+            "collateral_offered": tick("I can offer collateral or a guarantor", "collateral_offered",
+                                       "Do I need collateral or a guarantor for a business loan?"),
+        }
+    return {
+        "card_variant": choice("Card Type", "card_variant", "Which credit card is right for my income?"),
+        "add_on_card": tick("Add-on card for a family member", "add_on_card", "Who is liable for spends on an add-on credit card?"),
+    }
+
+
 # ---------------------------------------------------------------------------
 # Step 1 — About you / your business
 # ---------------------------------------------------------------------------
@@ -185,7 +227,8 @@ if step == 1:
             total_exp = c1.number_input("Total Work Experience (years)", min_value=0, max_value=60,
                                         value=int(data.get("work_experience_years", 0)))
             current = c2.number_input("Years with Current Employer", min_value=0, max_value=60,
-                                      value=int(data.get("current_job_years", 0)))
+                                      value=int(data.get("current_job_years", 0)),
+                                      help=preferences.ASK + "Am I eligible for a personal loan with 1 year at my current job?")
             loan_purpose = st.text_input("Loan Purpose", value=data.get("loan_purpose", ""), max_chars=255,
                                          placeholder="e.g. wedding, medical, home renovation")
             next_btn = st.form_submit_button("Next →")
@@ -242,6 +285,7 @@ elif step == 2:
             required = ("loan_amount_requested", "monthly_income") if product == "personal_loan" else ("monthly_income",)
         credit_score = st.number_input("Credit Score (300–900)", min_value=300, max_value=900,
                                        value=int(data.get("credit_score", 650)))
+        prefs = _preference_inputs()
         c1, c2 = st.columns(2)
         back = c1.form_submit_button("← Back")
         nxt = c2.form_submit_button("Next →")
@@ -254,6 +298,9 @@ elif step == 2:
         else:
             data.update({k: round(v, 2) for k, v in fields.items()})
             data["credit_score"] = int(credit_score)
+            # Merge so the step-4 terms tick survives; an unanswered choice (None) is dropped.
+            merged = {**(data.get("preferences") or {}), **prefs}
+            data["preferences"] = {k: v for k, v in merged.items() if v is not None}
             if _save_draft():
                 _go(3)
 
@@ -316,13 +363,17 @@ elif step == 3:
 # ---------------------------------------------------------------------------
 elif step == 4:
     st.subheader("Step 4: Review & Submit")
-    rows = REVIEW[product]
-    st.table({
-        "Field": [label for label, _, _ in rows],
-        "Value": [fmt(data[key]) if data.get(key) is not None else "—" for _, key, fmt in rows],
-    })
+    rows = [(label, fmt(data[key]) if data.get(key) is not None else "—") for label, key, fmt in REVIEW[product]]
+    rows += preferences.rows(product, data.get("preferences"))
+    st.table({"Field": [label for label, _ in rows], "Value": [value for _, value in rows]})
     if st.session_state["apply_uploaded"]:
         st.write("**Documents:** " + ", ".join(st.session_state["apply_uploaded"]))
+
+    terms_label, terms_question = preferences.TERMS["credit_card" if product == "credit_card" else "loan"]
+    accepted = st.checkbox(
+        terms_label, value=bool((data.get("preferences") or {}).get("terms_accepted")),
+        help=preferences.ASK + terms_question,
+    )
 
     c1, c2 = st.columns(2)
     if c1.button("← Back"):
@@ -333,6 +384,10 @@ elif step == 4:
         if not app_id:
             st.error("Application draft is missing. Go back to step 2.")
             st.stop()
+        if not accepted:
+            st.error("Please confirm you have read the terms before submitting.")
+            st.stop()
+        data["preferences"] = {**(data.get("preferences") or {}), "terms_accepted": True}
         if not _save_draft():
             st.stop()
         sub = nav.api("POST", f"/applications/{app_id}/submit")

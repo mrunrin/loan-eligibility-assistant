@@ -1,9 +1,12 @@
 from typing import Any
 
 from dotenv import load_dotenv
-from langfuse import Langfuse, get_client
+from langfuse import Langfuse, get_client, propagate_attributes
 
 load_dotenv()
+
+# Promptfoo sends "eval-..." session ids (promptfooconfig.yaml); eval scripts set LANGFUSE_TRACING_ENVIRONMENT.
+EVAL_SESSION_PREFIX = "eval-"
 
 
 def _mask(data: Any = None, **_: Any) -> Any:
@@ -22,3 +25,9 @@ def _mask(data: Any = None, **_: Any) -> Any:
 # Constructing the client first registers it as the singleton that get_client() returns.
 Langfuse(mask=_mask)
 langfuse = get_client()
+
+
+def trace_environment(session_id: str | None):
+    """Put evaluation requests in the Langfuse "eval" environment so they don't skew real-traffic latency."""
+    is_eval = (session_id or "").startswith(EVAL_SESSION_PREFIX)
+    return propagate_attributes(environment="eval" if is_eval else None)

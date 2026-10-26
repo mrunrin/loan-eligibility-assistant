@@ -79,6 +79,10 @@ needed, and every service used has a free tier.
 - Register with email verification (6-digit code by email, or a dev-mode button when email is off); log in;
   optional TOTP 2FA from the Security page.
 - Choose a product; fill a 4-step form; upload the product's required documents (PDF/JPG/PNG, up to 10 MB).
+- Optional product preferences on step 2 (business loan: facility type, industry, tenure, balance transfer,
+  collateral; personal loan: employer category, Credit Protect; credit card: card type, add-on card). Each has a
+  hint with a question the assistant can answer from the policy documents; none affect the score. The last step
+  asks the borrower to confirm they have read the MITC / loan agreement terms.
 - Submit → instant pre-qualification score and decision; an email on every status change (failed rules listed
   in writing on a fail).
 - Appeal a failed result with a written reason (→ manual review); withdraw any time before a decision.
@@ -187,7 +191,7 @@ A 10-minute demo script:
 ## A7. Tests, lint and evaluation
 
 ```powershell
-python -m pytest                    # 129 unit + API integration tests (needs PostgreSQL)
+python -m pytest                    # 133 unit + API integration tests (needs PostgreSQL)
 python -m ruff check .
 python eval/retrieval_eval.py       # recall@3 / MRR on the 9-question golden set
 ```
@@ -196,7 +200,7 @@ Answer evaluation (backend running; use an officer or admin token, which has no 
 
 ```powershell
 $env:EVAL_ACCESS_TOKEN = "<access token from POST /auth/login>"
-npx promptfoo@0.102.0 eval --no-cache --no-write -o eval/promptfoo_results.json
+npx promptfoo@0.102.0 eval --no-cache --no-write -j 1 -o eval/promptfoo_results.json
 python eval/check_pass_rate.py eval/promptfoo_results.json
 ```
 
@@ -252,11 +256,11 @@ trustworthy queue; and both need answers grounded in the lender's actual policy,
 |---|---|
 | Backend API endpoints | 40 (6 routers + chat and health) |
 | Frontend pages | 9 Streamlit pages + landing/login |
-| Database tables / migrations | 7 tables · Alembic migrations 001–012 |
-| Automated tests | 129 (unit + API integration against real PostgreSQL) |
+| Database tables / migrations | 7 tables · Alembic migrations 001–013 |
+| Automated tests | 133 (unit + API integration against real PostgreSQL) |
 | Knowledge base | 4 markdown files + 5 HDFC PDFs → roughly 1,000 evidence chunks |
 | Retrieval quality gate | recall@3 = 1.0, MRR = 0.944 on a 9-question graded golden set |
-| Answer quality gate | Promptfoo, 9 answer-level cases, pass rate ≥ 0.9 |
+| Answer quality gate | Promptfoo, 9 answer-level cases, pass rate ≥ 0.9, answer latency p95 ≤ 30 s |
 | Hosted AI services | Groq (2 models), Jina (embeddings), Cohere (rerank), Langfuse (tracing) |
 | Local models | none — no GPU, no torch, no Ollama |
 | Code size | ~7,300 lines of Python in `app/` and `frontend/` |
@@ -327,7 +331,7 @@ frontend/                 Streamlit app
   streamlit_app.py        landing, login, 2FA, email verification, FAQ
   nav.py                  API client (bearer token, refresh, client IP), guards, sidebar, idle timer
   pages/1–9               register, my applications, apply, detail, officer queue, admin, chat, security
-migrations/               Alembic (sync psycopg2), versions 001–012
+migrations/               Alembic (sync psycopg2), versions 001–013
 data/                     knowledge base: 4 .md + 5 .pdf
 eval/                     golden retrieval set, Promptfoo tests, gate scripts
 scripts/seed_demo.py      demo users, applications and documents
@@ -361,7 +365,7 @@ wiped and rebuilt once automatically. `/health` returns 200 only when the databa
 | Validation | Pydantic (`[email]`) | 2.13.4 | request/response schemas, PII redaction in validators | 001 |
 | Database | PostgreSQL | 15 (Docker, CI) | system of record, row locks, JSONB, triggers | 003 |
 | ORM | SQLAlchemy `[asyncio]` + asyncpg | 2.0.51 / 0.32.0 | async data access | 004 |
-| Migrations | Alembic + psycopg2-binary | 1.20.0 / 2.9.13 | versioned schema 001–012 | 004 |
+| Migrations | Alembic + psycopg2-binary | 1.20.0 / 2.9.13 | versioned schema 001–013 | 004 |
 | Auth | python-jose `[cryptography]`, passlib `[bcrypt]` + bcrypt, cryptography (Fernet), pyotp, qrcode | 3.5.0 / 1.7.4 + 4.0.1 / 50.0.2 / 2.10.0 / 8.2 | JWT, password hashing, encrypted TOTP, QR enrolment | 005, 013 |
 | Rate limiting | SlowAPI | 0.1.10 | per-user / per-IP limits | 015 |
 | Vector store | ChromaDB + langchain-chroma | 1.5.9 / 1.1.0 | persistent dense index | 010 |
@@ -392,8 +396,8 @@ wiped and rebuilt once automatically. `/health` returns 200 only when the databa
 **How it is used.**
 - `frontend/streamlit_app.py` is the landing + login page (password → TOTP step, or first-login 2FA enrolment with a
   QR code for staff), email verification and a two-column FAQ from `frontend/data/landing_faq.json`.
-- Nine pages in `frontend/pages/`: Register, My Applications, Apply (product picker + 4-step form + required-document
-  checklist), Application Detail, Officer Queue, Admin Dashboard, AI Loan Assistant, Security.
+- Nine pages in `frontend/pages/`: Register, My Applications, Apply (product picker + 4-step form with optional product
+  preferences + required-document checklist), Application Detail, Officer Queue, Admin Dashboard, AI Loan Assistant, Security.
 - `frontend/nav.py` is the single API client: it adds the bearer token, forwards the browser IP in
   `X-Forwarded-For`, refreshes the access token once on 401, handles a backend that is down, guards pages by role,
   draws the sidebar and injects a 5-minute idle-logout timer.
@@ -453,11 +457,12 @@ manages schema migrations (sync via psycopg2).
   `chat_messages`, `audit_events` (section 7).
 - **Row locks for correctness.** Officer claim and decision use `SELECT … FOR UPDATE`; a second concurrent claim
   waits, then sees `under_review` and gets 409. Admin role/active changes lock the target user row too.
-- **JSONB** stores each pre-qualification rule breakdown (`rule_breakdown`).
+- **JSONB** stores each pre-qualification rule breakdown (`rule_breakdown`) and the optional product preferences
+  (`loan_applications.preferences`, validated by a strict Pydantic model that rejects unknown keys).
 - **Append-only audit.** A Postgres trigger blocks `UPDATE`/`DELETE` on `audit_events` (only the FK `SET NULL` on
   user deletion is allowed).
 - **Indexes** for the hot paths: officer queue `(status, created_at)`; chat history `(user_id, session_id, created_at)`.
-- **Migrations 001–012** run automatically at backend startup, inside a Postgres **advisory lock** so two backend
+- **Migrations 001–013** run automatically at backend startup, inside a Postgres **advisory lock** so two backend
   instances cannot migrate at once. Enum types are created idempotently.
 - Application status machine (9 enum values):
 
@@ -654,7 +659,7 @@ flowchart TD
   say "The policy does not specify that" when nothing applies; treat blank template fields as "not specified".
 - **Application context** is built server-side from the caller's own rows only (ownership is a SQL `WHERE`, never an
   LLM decision): status, plain meaning of the status, next step and timeline (e.g. "usually 4–7 working days" under
-  review), score and every rule result, officer notes. Names are masked, amounts banded, user-typed fields quoted
+  review), score and every rule result, product preferences (facility type, card type, ...), officer notes. Names are masked, amounts banded, user-typed fields quoted
   as inert JSON strings.
 - **Memory:** conversation turns persist in `chat_messages` and survive restarts.
 - **Token budget:** borrowers get 10,000 real Groq tokens per day (router + answer, from Groq's own usage numbers),
@@ -700,8 +705,11 @@ heavy dependency for regex-level checks), Presidio (production path for broader 
 - **Langfuse 4.14.1:** one trace per chat message (`loan-eligibility-ask` / `loan-eligibility-stream`) with spans
   `rewrite-and-route`, `hybrid-retrieval`, `rerank`, `llm-generation`, and `case-summary` for officer summaries.
   Each generation records model and Groq token usage. All traced data is PII-masked. Optional: empty keys disable it.
+  Streaming traces carry `ttft_ms` (time until the user sees the first words). Promptfoo requests (`eval-` sessions)
+  and the eval scripts go to the Langfuse **`eval` environment**, so they do not skew real-traffic latency charts.
 - **`logs/audit.jsonl`:** one line per `/ask` request — request ID, session, **hash** of the question (not the text),
-  status, latency, intent, sources, provider.
+  status, latency, time to first words (`ttft_ms`, streaming), intent, sources, provider.
+  `eval/latency_report.py` turns it into p50/p95 for total latency and time to first words, excluding eval traffic.
 - **`audit_events` table (append-only):** logins (success and failure, with IP), lockouts, refresh-token reuse, 2FA
   changes, document upload/download/integrity failures, claims, decisions (with reason), appeals, withdrawals, role
   and activation changes, account deletion.
@@ -767,9 +775,9 @@ heavy dependency for regex-level checks), Presidio (production path for broader 
 ```
 checkout → Python 3.13 + pip cache → install (requirements + constraints)
 → ruff check → alembic upgrade head (PostgreSQL 15 service container)
-→ pytest (129 tests) → retrieval gate (recall@3 ≥ 0.80, real Jina + Cohere)
+→ pytest (133 tests) → retrieval gate (recall@3 ≥ 0.80, real Jina + Cohere)
 → start backend (budget unlimited for the eval user) → mint eval user + token
-→ Promptfoo (9 answer tests) → pass-rate gate (≥ 0.9)
+→ Promptfoo (9 answer tests, one at a time) → pass-rate gate (≥ 0.9) + latency gate (p95 ≤ 30 s)
 ```
 
 - API keys come from repository secrets and are given only to the steps that call those APIs.
@@ -788,6 +796,7 @@ checkout → Python 3.13 + pip cache → install (requirements + constraints)
 | Retrieval | `eval/golden_retrieval.yaml`: 9 graded questions (2 easy, 3 medium, 4 hard with distractor documents), each with the gold (document, page) | recall@3, MRR | 1.0, 0.944 |
 | Answers | `eval/questions.yaml`: 9 Promptfoo cases — fact, missing-policy, lender filter, Aadhaar and PAN redaction, prompt injection, medical refusal, legitimate question not blocked, off-topic refusal | pass rate | gate ≥ 0.9 |
 | Faithfulness | every Promptfoo case also checks that each number in the answer appears in the cited evidence or the question | deterministic | — |
+| Latency | the same 9 Promptfoo answers, run one at a time against `/ask` | p50 / p95 | gate p95 ≤ 30 s |
 
 Both sets are kept to 9 questions to stay inside free API tiers. They catch regressions; they do not prove
 production accuracy (a paraphrase and held-out set is the next step).
@@ -864,7 +873,7 @@ erDiagram
 | Table | Key columns |
 |---|---|
 | `users` | email (unique), hashed_password, role, is_active, is_email_verified, token_version, refresh_token_hash, failed_login_attempts, lockout_count, locked_until, totp_secret (Fernet), totp_pending_secret, totp_last_counter, session_started_at, last_seen_at |
-| `loan_applications` | applicant_id, status (9), product_type, loan amount/purpose, credit_score, business fields, individual fields (employment, DOB, experience, income, existing EMIs), reviewed_by, review_notes, reviewed_at, appeal_reason |
+| `loan_applications` | applicant_id, status (9), product_type, loan amount/purpose, credit_score, business fields, individual fields (employment, DOB, experience, income, existing EMIs), preferences (JSONB, optional, never scored), reviewed_by, review_notes, reviewed_at, appeal_reason |
 | `pre_qualification_results` | application_id (unique), score, decision, rule_breakdown (JSONB), ran_at |
 | `documents` | application_id, document_type, file_name, file_path, sha256 |
 | `chat_sessions` / `chat_messages` | user_id, session_id, role, content, intent |
@@ -902,7 +911,7 @@ All settings come from environment variables (`.env` locally, `env_file` in Comp
 |---|---|
 | Hardware | runs on a 7 GB RAM laptop with no GPU; all model work is hosted |
 | Cost | ₹0 — free tiers of Groq, Jina, Cohere, Langfuse; GitHub Actions free for public repos |
-| Latency | answers stream token by token; status events ("Searching policy documents…") show progress while retrieving |
+| Latency | answers stream token by token; status events ("Searching policy documents…") show progress while retrieving; measured per stage in Langfuse, p50/p95 and time to first words from `eval/latency_report.py`, and gated in CI (p95 ≤ 30 s) |
 | Cost control | per-borrower token budget; EMI, greetings, refusals and "not specified" answers make no LLM call; summaries cached |
 | Reproducibility | every package pinned through `constraints.txt`; Docker and CI use the same Python and pins |
 | Resilience | retries with `Retry-After` on all AI APIs; rerank and AI-summary fallbacks; health-gated startup |
@@ -929,7 +938,7 @@ All settings come from environment variables (`.env` locally, `env_file` in Comp
 
 ## 11. Slide kit — key numbers and a suggested deck
 
-**Headline numbers:** 40 endpoints · 9 pages · 7 tables · 12 migrations · 129 tests · 21 ADRs · ~1,000 evidence
+**Headline numbers:** 40 endpoints · 9 pages · 7 tables · 13 migrations · 133 tests · 21 ADRs · ~1,000 evidence
 chunks · recall@3 1.0 · 3 hosted AI services · 0 local models · ₹0 running cost · ~4-minute CI.
 
 **Suggested deck (one slide each):**

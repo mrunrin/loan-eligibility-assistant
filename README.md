@@ -26,7 +26,8 @@ See [project_architecture_summary.md](project_architecture_summary.md) for the d
   (mandatory for officers and admins, optional for borrowers).
 - Roles: borrower, officer, admin — enforced by the API on every endpoint.
 - Three products (business loan, personal loan, credit card), each with its own 4-step form, required
-  document checklist and pre-qualification rules.
+  document checklist and pre-qualification rules. The form also asks optional product preferences (e.g. Dropline OD vs term loan, card type, add-on card, Credit Protect), each with a hint suggesting the question to ask the assistant;
+  they are never scored, and a final step confirms the borrower has read the MITC / loan terms.
 - Document upload (PDF/JPG/PNG, content-checked, 10 MB cap, SHA-256 tamper check on every download), with in-page image and PDF preview.
 - Explainable pre-qualification: weighted rules plus hard knock-out rules → pass / manual review / fail;
   self-reported figures are marked *unverified*. Borrowers get the reasons from the assistant ("Ask here") and
@@ -159,12 +160,13 @@ Promptfoo answer evaluation (backend running; use an officer or admin access tok
 
 ```powershell
 $env:EVAL_ACCESS_TOKEN = "<access token from POST /auth/login>"
-npx promptfoo@0.102.0 eval --no-cache --no-write -o eval/promptfoo_results.json
+npx promptfoo@0.102.0 eval --no-cache --no-write -j 1 -o eval/promptfoo_results.json
 python eval/check_pass_rate.py eval/promptfoo_results.json
 ```
 
 CI (`.github/workflows/eval.yml`) runs lint → migrations → pytest → retrieval gate
-(recall@3 ≥ 0.80) → Promptfoo gate (pass rate ≥ 90%, including a numeric-faithfulness check on every answer).
+(recall@3 ≥ 0.80) → Promptfoo gate (pass rate ≥ 90%, including a numeric-faithfulness check on every answer, and answer latency
+p95 ≤ 30 s).
 See [eval/README.md](eval/README.md).
 
 ## Pre-qualification rules
@@ -207,7 +209,8 @@ unranked passages and the backend logs a warning.
   lockouts, refresh-token reuse, 2FA changes, document upload/download/integrity failures, claims, decisions,
   appeals, withdrawals, role and activation changes, account deletion.
 - `logs/audit.jsonl`: one line per chat request — request id, session id, SHA-256 of the question,
-  outcome (`ok`, `blocked`, `no_evidence`, `retrieval_failed`, …), intent, latency, source pages, providers.
+  outcome (`ok`, `blocked`, `no_evidence`, `retrieval_failed`, …), intent, latency, time to first words
+  (streaming), source pages, providers. `python eval/latency_report.py` prints p50/p95 from it, without eval traffic.
 - Every response carries an `X-Request-ID` header.
 
 ## Security summary
@@ -225,13 +228,13 @@ Done: authentication with 2FA, lockouts and server-side session limits; roles; t
 pre-qualification with knockouts; appeals and withdrawals; status emails; officer and admin workflows;
 document upload/download with integrity checks; hybrid RAG with citations, product and lender filtering;
 intent routing; guardrails on input and output; chat memory in PostgreSQL; full-pipeline Langfuse tracing;
-append-only audit trail; migrations `001`–`012`; unit and API integration tests; retrieval and answer
+append-only audit trail; migrations `001`–`013`; unit and API integration tests; retrieval and answer
 quality gates in CI; Docker Compose with a seed profile.
 
 Open before the final demo:
 - Run a clean `docker compose up --build` end to end.
 - Re-run `eval/retrieval_eval.py` after any re-embed and compare recall@3 / MRR.
-- Measure time-to-first-token and total latency on the demo machine.
+- Run `python eval/latency_report.py` after a few demo questions to get p50/p95 latency and time to first words.
 - Push a deliberately broken change to confirm the CI gates fail, and make the "RAG Quality Gate"
   check required in the repository's branch protection settings.
 - Rehearse: in-policy answer, follow-up, missing-policy question, own-application question, EMI, source inspection.

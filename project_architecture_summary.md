@@ -12,8 +12,8 @@ Student capstone demo; not an official HDFC Bank service.
 ## 1. Frontend (Streamlit, multi-page)
 - `frontend/streamlit_app.py` — login (password → TOTP step, or first-login 2FA enrollment for staff),
   email verification, FAQ.
-- `frontend/pages/` — Register, My Applications, Apply (product picker + 4-step form with required-document
-  checklist), Application Detail (score, authorised document preview (image / PDF) and download, appeal,
+- `frontend/pages/` — Register, My Applications, Apply (product picker + 4-step form with optional product
+  preferences and a required-document checklist), Application Detail (score, authorised document preview (image / PDF) and download, appeal,
   withdraw, officer decision; the pre-qual explanation depends on the role — borrower: a 🤖 "Ask here" card that
   opens the assistant on this application (approved: a fixed "you will hear from us by email" message);
   officer: an "AI generated summary" dropdown; admin: the full rule breakdown), Officer Queue (claim / take over
@@ -51,7 +51,7 @@ The `lifespan` coroutine only `yield`s (opens for traffic) after step 4. A corru
 wiped and rebuilt once automatically.
 
 ## 3. Data layer
-- PostgreSQL 15, SQLAlchemy 2 async (asyncpg) at runtime; Alembic (psycopg2) migrations `001`–`012`,
+- PostgreSQL 15, SQLAlchemy 2 async (asyncpg) at runtime; Alembic (psycopg2) migrations `001`–`013`,
   applied automatically at startup (step 1) under a Postgres advisory lock.
 - Tables: users, loan_applications, pre_qualification_results, documents, chat_sessions, chat_messages,
   audit_events. Officer-queue index on `loan_applications(status, created_at)`.
@@ -64,6 +64,9 @@ wiped and rebuilt once automatically.
   SHA-256 hash checked on each download.
 - Pre-qualification (`app/prequal.py`): per-product weighted rules plus knockout rules; self-reported inputs
   are flagged `unverified` in the stored JSONB breakdown.
+- Product preferences (`loan_applications.preferences`, JSONB, migration 013): optional choices such as facility
+  type, tenure, card type, add-on card and Credit Protect. Validated against fixed values, never scored, shown on
+  the application page and passed to the assistant so it can explain them from the policy documents.
 - Officer case summary (`app/case_summary.py`, `GET /prequal/{id}/summary`, officers only): one Groq call turns
   the rule results (amounts banded) into 5–6 lines, cached per pre-qual run, with a plain rules summary as the
   fallback. It explains the result; it never changes the score or the decision.
@@ -124,7 +127,8 @@ wiped and rebuilt once automatically.
 ## 7. Observability & evaluation
 - Langfuse: one trace per chat request — `rewrite-and-route` generation, `hybrid-retrieval` with a nested
   `rerank` span, `llm-generation` — with token usage on each generation; all inputs/outputs pass through
-  the PII mask before export.
+  the PII mask before export. Streaming traces carry `ttft_ms`; eval traffic goes to the Langfuse `eval`
+  environment. `eval/latency_report.py` gives p50/p95 latency and time to first words from the audit log.
 - `eval/retrieval_eval.py` — recall@3 and MRR on 9 graded golden questions with gold pages (CI-gated).
 - `promptfooconfig.yaml` + `eval/questions.yaml` — 9 answer-level cases with a deterministic numeric
   faithfulness check on every answer; CI gates on pass rate (`eval/check_pass_rate.py`).
@@ -134,4 +138,4 @@ wiped and rebuilt once automatically.
 ## 8. Deployment
 - `docker-compose.yml`: postgres, backend (no local models, non-root, healthcheck on readiness), frontend,
   and an opt-in `seed` profile. API published on loopback only.
-- `.github/workflows/eval.yml`: lint → migrations → pytest → retrieval gate → backend → promptfoo gate.
+- `.github/workflows/eval.yml`: lint → migrations → pytest → retrieval gate → backend → promptfoo gate (pass rate + p95 latency).

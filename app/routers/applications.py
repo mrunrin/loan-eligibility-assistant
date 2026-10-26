@@ -9,7 +9,7 @@ from typing import Literal
 import aiofiles
 from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Query, UploadFile, status
 from fastapi.responses import FileResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import and_, or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -60,6 +60,25 @@ _MAX_MONEY = Decimal("9999999999999.99")
 # ---------------------------------------------------------------------------
 
 
+class ApplicationPreferences(BaseModel):
+    """Optional choices a real application form asks; each maps to a policy section the assistant can explain.
+
+    Stored as JSONB and never used by the pre-qualification score. Unknown keys are rejected.
+    """
+    model_config = ConfigDict(extra="forbid")
+
+    employer_category: Literal["public_sector", "private_limited", "public_limited", "llp", "other"] | None = None
+    credit_protect: bool | None = None
+    facility_type: Literal["term_loan", "dropline_od"] | None = None
+    industry: Literal["trading", "manufacturing", "services", "professional", "other"] | None = None
+    tenure_months: int | None = Field(None, ge=12, le=48)
+    balance_transfer: bool | None = None
+    collateral_offered: bool | None = None
+    card_variant: Literal["entry", "cashback", "premium"] | None = None
+    add_on_card: bool | None = None
+    terms_accepted: bool | None = None
+
+
 class ApplicationUpdate(BaseModel):
     # No product caps here: the pre-qual engine owns amount/age rules and must be able to fail them.
     product_type: ProductType | None = None
@@ -78,6 +97,7 @@ class ApplicationUpdate(BaseModel):
     current_job_years: int | None = Field(None, ge=0, le=80)
     monthly_income: Decimal | None = Field(None, ge=0, le=_MAX_MONEY, decimal_places=2)
     existing_emis: Decimal | None = Field(None, ge=0, le=_MAX_MONEY, decimal_places=2)
+    preferences: ApplicationPreferences | None = None
 
 
 class ApplicationCreate(ApplicationUpdate):
@@ -115,6 +135,7 @@ class ApplicationOut(BaseModel):
     current_job_years: int | None
     monthly_income: float | None
     existing_emis: float | None
+    preferences: dict = {}
     review_notes: str | None = None
     reviewed_at: str | None = None
     created_at: str | None = None
@@ -174,6 +195,7 @@ def _to_out(app: LoanApplication) -> ApplicationOut:
         current_job_years=app.current_job_years,
         monthly_income=_num(app.monthly_income),
         existing_emis=_num(app.existing_emis),
+        preferences=app.preferences or {},
         review_notes=app.review_notes,
         reviewed_at=app.reviewed_at.isoformat() if app.reviewed_at else None,
         created_at=app.created_at.isoformat() if app.created_at else None,
@@ -263,7 +285,8 @@ async def create_application(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    app = LoanApplication(applicant_id=current_user.id, **body.model_dump())
+    # exclude_none keeps unanswered preferences out of the stored JSON; unset columns default to NULL anyway.
+    app = LoanApplication(applicant_id=current_user.id, **body.model_dump(exclude_none=True))
     db.add(app)
     await db.commit()
     await db.refresh(app)
