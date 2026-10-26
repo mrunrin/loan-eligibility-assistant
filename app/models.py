@@ -133,6 +133,8 @@ class LoanApplication(Base):
     current_job_years: Mapped[int | None] = mapped_column(Integer)
     monthly_income: Mapped[Decimal | None] = mapped_column(Numeric(15, 2))
     existing_emis: Mapped[Decimal | None] = mapped_column(Numeric(15, 2))
+    # Optional product choices (facility type, card variant, ...); validated by ApplicationPreferences, never scored.
+    preferences: Mapped[dict | None] = mapped_column(JSONB)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )

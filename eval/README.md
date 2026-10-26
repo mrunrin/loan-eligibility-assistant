@@ -13,7 +13,11 @@ Two automated gates plus a manual review set.
   defined in `promptfooconfig.yaml`: each number in the answer must appear in the cited evidence or
   the question.
 - `check_pass_rate.py` — gates on the overall Promptfoo pass rate (`PASS_RATE_THRESHOLD`, default 0.9),
-  so one flaky LLM answer does not fail CI on its own.
+  so one flaky LLM answer does not fail CI on its own, and on answer latency: it prints p50/p95 and fails when
+  p95 is above `LATENCY_P95_MS` (default 30000). `-j 1` runs the cases one at a time so they do not queue on
+  each other and inflate the numbers.
+- `latency_report.py` — p50/p95 of real chat latency and time to first words (streaming) from
+  `logs/audit.jsonl`, leaving out promptfoo's `eval-` sessions.
 - `test_questions.md` — human-readable manual review set.
 
 ## Run locally
@@ -26,7 +30,7 @@ Start the backend, log in as an officer or admin to get an access token (see the
 
 ```powershell
 $env:EVAL_ACCESS_TOKEN = "<access token>"
-npx promptfoo@0.102.0 eval --no-cache --no-write -o eval/promptfoo_results.json
+npx promptfoo@0.102.0 eval --no-cache --no-write -j 1 -o eval/promptfoo_results.json
 python eval/check_pass_rate.py eval/promptfoo_results.json
 ```
 
@@ -37,6 +41,8 @@ Each call counts against the eval user's daily token budget; use an officer or a
 ## What the gates check
 
 - Retrieval: the right page reaches the top 3 (recall@3) and how high it ranks (MRR).
+- Latency: p95 of the 9 answers stays under the limit (catches a real slowdown; set generously because
+  free-tier APIs called from a shared CI runner vary).
 - Answers: key facts present, "the policy does not specify that" for blank or missing facts, no numbers
   outside the evidence, lender-specific questions cite only that lender, PII in the question is removed
   (with a notice) rather than refused, and prompt injection and off-topic requests are refused.

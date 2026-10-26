@@ -37,7 +37,7 @@ from app.limiter import limiter, user_or_ip
 from app.llm import start_usage_meter
 from app.models import User
 from app.routers import admin, applications, auth, mfa, officer, prequal
-from app.tracing import langfuse
+from app.tracing import langfuse, trace_environment
 
 # Windows pipes and services default to cp1252, which cannot print the ✓ in the startup lines and crashed startup.
 for _stream in (sys.stdout, sys.stderr):
@@ -295,7 +295,7 @@ async def ask(
             "source": "budget_exceeded", "sources": [],
         })
     meter = start_usage_meter()
-    with langfuse.start_as_current_observation(
+    with trace_environment(body.session_id), langfuse.start_as_current_observation(
         name="loan-eligibility-ask",
         input={"question": body.question},
         metadata={"request_id": request_id, "session_id": body.session_id},
@@ -359,7 +359,7 @@ async def ask_stream(request: Request, body: AskRequest, current_user: User = De
         stages: asyncio.Queue[str] = asyncio.Queue()
         prepared: dict | None = None
         async with AsyncSessionLocal() as db:
-            with langfuse.start_as_current_observation(
+            with trace_environment(body.session_id), langfuse.start_as_current_observation(
                 name="loan-eligibility-stream",
                 input={"question": body.question},
                 metadata={"request_id": request_id, "session_id": body.session_id},
@@ -387,6 +387,7 @@ async def ask_stream(request: Request, body: AskRequest, current_user: User = De
 
                     evidence = prepared["evidence_texts"]
                     emitted, pending = "", ""
+                    ttft_ms = None  # when the user sees the first words (sentence-buffered), not the model's first token
                     # The Groq call traces itself as a Langfuse generation with token usage (app.llm).
                     async for token in iterate_in_threadpool(policy_qa.stream_answer(prepared)):
                         pending += token
@@ -398,10 +399,12 @@ async def ask_stream(request: Request, body: AskRequest, current_user: User = De
                             safe = check_output(pending[:last_end], evidence)
                             pending = pending[last_end:]
                             emitted += safe
+                            ttft_ms = ttft_ms or int((time.perf_counter() - started) * 1000)
                             yield _sse("token", {"text": safe})
                     if pending:
                         safe = check_output(pending, evidence)
                         emitted += safe
+                        ttft_ms = ttft_ms or int((time.perf_counter() - started) * 1000)
                         yield _sse("token", {"text": safe})
 
                     status = prepared.get("status", "ok")
@@ -409,11 +412,11 @@ async def ask_stream(request: Request, body: AskRequest, current_user: User = De
                     result = {"answer": emitted, "source": prepared["source"], "sources": prepared["sources"],
                               "status": status, "intent": intent, "notice": body.notice}
                     span.update(output={"answer": emitted, "status": status, "intent": intent},
-                                metadata={"groq_tokens": meter[0]})
+                                metadata={"groq_tokens": meter[0], "ttft_ms": ttft_ms})
                     await _remember(db, current_user, body, status, emitted, intent)
                     write_audit_event(
                         request_id=request_id, session_id=body.session_id, question=body.question, status=status,
-                        latency_ms=int((time.perf_counter() - started) * 1000), sources=result["sources"],
+                        latency_ms=int((time.perf_counter() - started) * 1000), ttft_ms=ttft_ms, sources=result["sources"],
                         requested_provider="groq", answered_provider=prepared.get("answered_provider"), intent=intent,
                     )
                     yield _sse("done", result)

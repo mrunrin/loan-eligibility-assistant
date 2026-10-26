@@ -28,7 +28,7 @@ eval-retrieval:
 	$(PY) eval/retrieval_eval.py
 
 eval:
-	npx promptfoo@0.102.0 eval --no-cache --no-write -o eval/promptfoo_results.json; $(PY) eval/check_pass_rate.py eval/promptfoo_results.json
+	npx promptfoo@0.102.0 eval --no-cache --no-write -j 1 -o eval/promptfoo_results.json; $(PY) eval/check_pass_rate.py eval/promptfoo_results.json
 
 docker-up:
 	docker compose up --build

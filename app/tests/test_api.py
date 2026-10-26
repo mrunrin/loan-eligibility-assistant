@@ -151,6 +151,20 @@ async def test_patch_can_clear_a_field(ctx):
     assert r.json()["business_name"] == FULL_APP["business_name"]  # untouched fields stay
 
 
+async def test_preferences_are_validated_stored_and_never_scored(ctx):
+    _, headers = await ctx.user()
+    prefs = {"facility_type": "dropline_od", "tenure_months": 36, "balance_transfer": True, "terms_accepted": True}
+    r = await ctx.client.post("/applications", json={**FULL_APP, "preferences": prefs}, headers=headers)
+    assert r.status_code == 201 and r.json()["preferences"] == prefs  # unanswered choices are not stored as nulls
+    for bad in ({"facility_type": "mortgage"}, {"tenure_months": 120}, {"approve_me": True}):
+        r = await ctx.client.post("/applications", json={**FULL_APP, "preferences": bad}, headers=headers)
+        assert r.status_code == 422, bad
+    with_prefs = await ctx.submitted_app(headers, preferences=prefs)
+    without = await ctx.submitted_app(headers)
+    scores = [(await ctx.client.get(f"/prequal/{a}", headers=headers)).json()["score"] for a in (with_prefs, without)]
+    assert scores[0] == scores[1]
+
+
 INDIVIDUAL = {
     "employment_type": "salaried",
     "employer_name": "Infosys",

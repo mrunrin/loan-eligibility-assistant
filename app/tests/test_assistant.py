@@ -34,6 +34,21 @@ def test_user_typed_fields_enter_the_prompt_as_inert_data():
     assert prompt.count("</application_context>") == 1 and prompt.count("</policy_context>") == 1
 
 
+def test_preferences_reach_the_application_context():
+    from datetime import datetime, timezone
+
+    from app.assistant import _describe
+    from app.models import LoanApplication
+
+    now = datetime.now(timezone.utc)
+    app = LoanApplication(status="draft", product_type="business_loan", created_at=now, updated_at=now,
+                          preferences={"facility_type": "dropline_od", "balance_transfer": False, "tenure_months": 24})
+    text = _describe(app, 1, now)
+    assert "Facility type: Dropline Overdraft (DOD)" in text
+    assert "Balance transfer from another lender: no" in text and "Tenure requested (months): 24" in text
+    assert "Card type" not in text  # unanswered preferences are left out
+
+
 def test_parse_route_rejects_untrusted_output():
     assert parse_route("not json", "q") == Route("q", "policy", via="fallback")
     assert parse_route('{"intent": "drop_tables"}', "q").intent == "policy"

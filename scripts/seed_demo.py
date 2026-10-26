@@ -132,6 +132,12 @@ def seed(db: Session) -> None:
         ).fetchone()
         if existing:
             app_ref_to_id[a["application_ref"]] = existing[0]
+            # Apps seeded before migration 013 get the demo preferences; anything already set is kept.
+            db.execute(
+                text("UPDATE loan_applications SET preferences = CAST(:prefs AS jsonb)"
+                     " WHERE id = :id AND preferences IS NULL"),
+                {"id": existing[0], "prefs": json.dumps(a["preferences"]) if a.get("preferences") else None},
+            )
             print(f"  skip app {a['application_ref']} (exists)")
             continue
 
@@ -146,10 +152,10 @@ def seed(db: Session) -> None:
                 "  business_name, business_type, years_in_business, annual_revenue,"
                 "  monthly_emi_capacity, credit_score, employment_type, employer_name,"
                 "  date_of_birth, work_experience_years, current_job_years, monthly_income,"
-                "  existing_emis, reviewed_by, reviewed_at)"
+                "  existing_emis, preferences, reviewed_by, reviewed_at)"
                 " VALUES (:id, :uid, :status, :pt, :amt, :purpose, :bname, :btype,"
                 "         :years, :rev, :emi, :cs, :emp, :employer, :dob, :exp, :cur,"
-                "         :income, :existing, :reviewer, :reviewed_at)"
+                "         :income, :existing, CAST(:prefs AS jsonb), :reviewer, :reviewed_at)"
             ),
             {
                 "id": app_id,
@@ -171,6 +177,7 @@ def seed(db: Session) -> None:
                 "cur": a.get("current_job_years"),
                 "income": a.get("monthly_income"),
                 "existing": a.get("existing_emis"),
+                "prefs": json.dumps(a["preferences"]) if a.get("preferences") else None,
                 "reviewer": reviewer_id if status in CLAIMED_STATUSES else None,
                 "reviewed_at": datetime.now(timezone.utc) if status in DECIDED_STATUSES else None,
             },

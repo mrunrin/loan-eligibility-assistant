@@ -11,7 +11,14 @@
     "monthly_emi_capacity": 45000,
     "credit_score": 675,
     "status": "draft",
-    "pre_qualification_result": null
+    "pre_qualification_result": null,
+    "preferences": {
+      "facility_type": "dropline_od",
+      "industry": "trading",
+      "tenure_months": 24,
+      "balance_transfer": false,
+      "collateral_offered": false
+    }
   },
   {
     "application_ref": "APP-2026-002",
@@ -25,7 +32,14 @@
     "monthly_emi_capacity": 60000,
     "credit_score": 705,
     "status": "draft",
-    "pre_qualification_result": null
+    "pre_qualification_result": null,
+    "preferences": {
+      "facility_type": "term_loan",
+      "industry": "manufacturing",
+      "tenure_months": 48,
+      "balance_transfer": false,
+      "collateral_offered": false
+    }
   },
   {
     "application_ref": "APP-2026-003",
@@ -39,7 +53,15 @@
     "monthly_emi_capacity": 42000,
     "credit_score": 680,
     "status": "submitted",
-    "pre_qualification_result": null
+    "pre_qualification_result": null,
+    "preferences": {
+      "facility_type": "term_loan",
+      "industry": "services",
+      "tenure_months": 36,
+      "balance_transfer": false,
+      "collateral_offered": false,
+      "terms_accepted": true
+    }
   },
   {
     "application_ref": "APP-2026-004",
@@ -53,7 +75,15 @@
     "monthly_emi_capacity": 65000,
     "credit_score": 710,
     "status": "submitted",
-    "pre_qualification_result": null
+    "pre_qualification_result": null,
+    "preferences": {
+      "facility_type": "dropline_od",
+      "industry": "trading",
+      "tenure_months": 24,
+      "balance_transfer": false,
+      "collateral_offered": false,
+      "terms_accepted": true
+    }
   },
   {
     "application_ref": "APP-2026-005",
@@ -110,6 +140,14 @@
       ],
       "model": "demo_rules_v1",
       "note": "Synthetic demo score; not an actual lender decision or credit policy."
+    },
+    "preferences": {
+      "facility_type": "term_loan",
+      "industry": "services",
+      "tenure_months": 36,
+      "balance_transfer": true,
+      "collateral_offered": false,
+      "terms_accepted": true
     }
   },
   {
@@ -167,6 +205,14 @@
       ],
       "model": "demo_rules_v1",
       "note": "Synthetic demo score; not an actual lender decision or credit policy."
+    },
+    "preferences": {
+      "facility_type": "term_loan",
+      "industry": "trading",
+      "tenure_months": 48,
+      "balance_transfer": false,
+      "collateral_offered": true,
+      "terms_accepted": true
     }
   },
   {
@@ -224,6 +270,14 @@
       ],
       "model": "demo_rules_v1",
       "note": "Synthetic demo score; not an actual lender decision or credit policy."
+    },
+    "preferences": {
+      "facility_type": "term_loan",
+      "industry": "manufacturing",
+      "tenure_months": 48,
+      "balance_transfer": false,
+      "collateral_offered": false,
+      "terms_accepted": true
     }
   },
   {
@@ -281,6 +335,14 @@
       ],
       "model": "demo_rules_v1",
       "note": "Synthetic demo score; not an actual lender decision or credit policy."
+    },
+    "preferences": {
+      "facility_type": "term_loan",
+      "industry": "services",
+      "tenure_months": 36,
+      "balance_transfer": false,
+      "collateral_offered": false,
+      "terms_accepted": true
     }
   },
   {
@@ -338,6 +400,14 @@
       ],
       "model": "demo_rules_v1",
       "note": "Synthetic demo score; not an actual lender decision or credit policy."
+    },
+    "preferences": {
+      "facility_type": "dropline_od",
+      "industry": "trading",
+      "tenure_months": 12,
+      "balance_transfer": false,
+      "collateral_offered": false,
+      "terms_accepted": true
     }
   },
   {
@@ -395,6 +465,14 @@
       ],
       "model": "demo_rules_v1",
       "note": "Synthetic demo score; not an actual lender decision or credit policy."
+    },
+    "preferences": {
+      "facility_type": "term_loan",
+      "industry": "services",
+      "tenure_months": 48,
+      "balance_transfer": false,
+      "collateral_offered": false,
+      "terms_accepted": true
     }
   },
   {
@@ -452,6 +530,14 @@
       ],
       "model": "demo_rules_v1",
       "note": "Synthetic demo score; not an actual lender decision or credit policy."
+    },
+    "preferences": {
+      "facility_type": "dropline_od",
+      "industry": "manufacturing",
+      "tenure_months": 24,
+      "balance_transfer": false,
+      "collateral_offered": false,
+      "terms_accepted": true
     }
   },
   {
@@ -509,6 +595,14 @@
       ],
       "model": "demo_rules_v1",
       "note": "Synthetic demo score; not an actual lender decision or credit policy."
+    },
+    "preferences": {
+      "facility_type": "term_loan",
+      "industry": "trading",
+      "tenure_months": 36,
+      "balance_transfer": true,
+      "collateral_offered": false,
+      "terms_accepted": true
     }
   },
   {
@@ -566,6 +660,14 @@
       ],
       "model": "demo_rules_v1",
       "note": "Synthetic demo score; not an actual lender decision or credit policy."
+    },
+    "preferences": {
+      "facility_type": "term_loan",
+      "industry": "trading",
+      "tenure_months": 48,
+      "balance_transfer": false,
+      "collateral_offered": true,
+      "terms_accepted": true
     }
   },
   {
@@ -623,6 +725,14 @@
       ],
       "model": "demo_rules_v1",
       "note": "Synthetic demo score; not an actual lender decision or credit policy."
+    },
+    "preferences": {
+      "facility_type": "term_loan",
+      "industry": "manufacturing",
+      "tenure_months": 48,
+      "balance_transfer": false,
+      "collateral_offered": true,
+      "terms_accepted": true
     }
   },
   {
@@ -680,6 +790,14 @@
       ],
       "model": "demo_rules_v1",
       "note": "Synthetic demo score; not an actual lender decision or credit policy."
+    },
+    "preferences": {
+      "facility_type": "term_loan",
+      "industry": "manufacturing",
+      "tenure_months": 36,
+      "balance_transfer": false,
+      "collateral_offered": false,
+      "terms_accepted": true
     }
   },
   {
@@ -737,6 +855,14 @@
       ],
       "model": "demo_rules_v1",
       "note": "Synthetic demo score; not an actual lender decision or credit policy."
+    },
+    "preferences": {
+      "facility_type": "dropline_od",
+      "industry": "trading",
+      "tenure_months": 24,
+      "balance_transfer": false,
+      "collateral_offered": false,
+      "terms_accepted": true
     }
   },
   {
@@ -808,6 +934,11 @@
           "knockout": false
         }
       ]
+    },
+    "preferences": {
+      "employer_category": "public_limited",
+      "credit_protect": true,
+      "terms_accepted": true
     }
   },
   {
@@ -854,6 +985,11 @@
           "knockout": false
         }
       ]
+    },
+    "preferences": {
+      "card_variant": "cashback",
+      "add_on_card": true,
+      "terms_accepted": true
     }
   },
   {
@@ -925,6 +1061,11 @@
           "knockout": false
         }
       ]
+    },
+    "preferences": {
+      "employer_category": "other",
+      "credit_protect": false,
+      "terms_accepted": true
     }
   },
   {
@@ -971,6 +1112,11 @@
           "knockout": false
         }
       ]
+    },
+    "preferences": {
+      "card_variant": "entry",
+      "add_on_card": false,
+      "terms_accepted": true
     }
   },
   {
@@ -1042,6 +1188,11 @@
           "knockout": false
         }
       ]
+    },
+    "preferences": {
+      "employer_category": "public_limited",
+      "credit_protect": true,
+      "terms_accepted": true
     }
   },
   {
@@ -1059,6 +1210,10 @@
     "existing_emis": 0,
     "credit_score": 735,
     "status": "draft",
-    "pre_qualification_result": null
+    "pre_qualification_result": null,
+    "preferences": {
+      "employer_category": "public_limited",
+      "credit_protect": false
+    }
   }
 ]

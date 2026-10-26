@@ -1,4 +1,5 @@
 import nav
+import preferences
 import streamlit as st
 
 PAGE = "pages/5_Application_Detail.py"
@@ -57,6 +58,8 @@ else:
         ]
         right.insert(0, ("Loan Amount", _money(app.get("loan_amount_requested"))))
 right.append(("Credit Score", _text(app.get("credit_score"))))
+if app.get("preferences"):  # applications created before the preference fields have none
+    left += preferences.rows(product, app["preferences"])
 
 st.title(app.get("title") or f"Application {app_id[:8]}")
 st.markdown(f"**Status:** `{app['status'].replace('_', ' ').upper()}`")

@@ -184,6 +184,28 @@ def _quoted(value: str | None) -> str:
     return json.dumps(value.strip().replace("<", "‹").replace(">", "›")[:300], ensure_ascii=False)
 
 
+# Optional form choices (ApplicationPreferences): fixed enum/bool values, so they need no quoting.
+PREFERENCE_LABELS = {
+    "employer_category": "Employer category",
+    "credit_protect": "Opted for Credit Protect insurance",
+    "facility_type": "Facility type",
+    "industry": "Industry",
+    "tenure_months": "Tenure requested (months)",
+    "balance_transfer": "Balance transfer from another lender",
+    "collateral_offered": "Collateral or guarantor offered",
+    "card_variant": "Card type applied for",
+    "add_on_card": "Add-on card requested",
+    "terms_accepted": "Confirmed reading the terms (MITC / loan agreement)",
+}
+_PREFERENCE_VALUES = {"dropline_od": "Dropline Overdraft (DOD)", "llp": "LLP", "public_sector": "Government / PSU"}
+
+
+def _preference(value) -> str:
+    if isinstance(value, bool):
+        return "yes" if value else "no"
+    return _PREFERENCE_VALUES.get(value, str(value).replace("_", " "))
+
+
 def _describe(app: LoanApplication, index: int, now: datetime) -> str:
     meaning, next_step = STATUS_GUIDE.get(app.status, ("", ""))
     name = app.business_name if app.product_type == "business_loan" else app.employer_name
@@ -200,6 +222,8 @@ def _describe(app: LoanApplication, index: int, now: datetime) -> str:
             f"Loan amount requested: ₹{app.loan_amount_requested:,.0f}" if app.loan_amount_requested else "Loan amount requested: not specified",
             f"Loan purpose: {_quoted(app.loan_purpose)}",
         ]
+    prefs = app.preferences or {}
+    lines += [f"{label}: {_preference(prefs[key])}" for key, label in PREFERENCE_LABELS.items() if prefs.get(key) is not None]
     lines += [
         f"Created on: {app.created_at:%d %b %Y} ({(now - app.created_at).days} days ago)",
         f"Last updated: {app.updated_at:%d %b %Y}",
