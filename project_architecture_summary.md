@@ -119,8 +119,8 @@ wiped and rebuilt once automatically.
   Retrieval failures return an explicit refusal.
 - **Output**: PII redaction against the full evidence text on both `/ask` and `/ask/stream` (sentence-buffered).
 - **Memory**: conversation history in `chat_messages` per (user, session); clients cannot inject turns.
-- **Budget**: per-borrower daily token budget from Groq's reported usage (router + answer), reset at
-  midnight IST; officers and admins unlimited.
+- **Budget** (optional, off by default): `GROQ_DAILY_BUDGET_TOKENS` caps each borrower's daily tokens from Groq's
+  reported usage (router + answer), reset at midnight IST; officers and admins unlimited.
 
 ## 6. Model providers
 - Groq — `openai/gpt-oss-20b` answers; `qwen/qwen3.8-27b` rewrites and routes. 429s are retried.

@@ -53,7 +53,8 @@ See [project_architecture_summary.md](project_architecture_summary.md) for the d
   any model sees them; off-topic and prompt-injection inputs are refused; outputs are PII-redacted (also
   while streaming). User-typed application fields enter the prompt as quoted data, never as instructions.
 - Conversation memory per user and session, stored in PostgreSQL.
-- Per-borrower daily token budget counted from Groq's reported usage, reset at midnight IST.
+- Optional per-borrower daily token budget (off by default; set `GROQ_DAILY_BUDGET_TOKENS` to enable), counted
+  from Groq's reported usage and reset at midnight IST.
 
 ## Architecture
 

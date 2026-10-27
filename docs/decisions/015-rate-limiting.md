@@ -20,7 +20,7 @@ Limits:
 - `/auth/refresh` — 30 / minute / IP
 - `/auth/resend-verification` — 3 / 4 hours / IP
 - 2FA setup / confirm / validate — 5–10 / minute
-- `/ask`, `/ask/stream` — 20 / minute / user, for every role (borrowers are additionally subject to the daily token budget — see [ADR-006](006-groq-llm.md))
+- `/ask`, `/ask/stream` — 20 / minute / user, for every role (borrowers can additionally be capped by the optional daily token budget, off by default — see [ADR-006](006-groq-llm.md))
 
 Separately from slowapi, failed logins are counted per IP across all accounts (`IP_FAILED_LOGIN_LIMIT`, 20 per 15 minutes → 429), see [ADR-005](005-jwt-auth.md).
 

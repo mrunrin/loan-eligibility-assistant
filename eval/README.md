@@ -36,7 +36,7 @@ python eval/check_pass_rate.py eval/promptfoo_results.json
 
 Promptfoo calls `http://localhost:8000/ask` (answers come from Groq, so `GROQ_API_KEY` must be set) with a
 separate chat session per question, so the server-side conversation memory cannot leak between cases.
-Each call counts against the eval user's daily token budget; use an officer or admin token, which is unlimited.
+If `GROQ_DAILY_BUDGET_TOKENS` is set, each call counts against the eval user's daily token budget (it is off by default); an officer or admin token is never limited.
 
 ## What the gates check
 

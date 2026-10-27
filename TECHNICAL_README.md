@@ -116,7 +116,7 @@ needed, and every service used has a free tier.
 - Tools: policy search, the user's own application record (or, for the reviewing officer or an admin, the selected
   application), EMI calculator.
 - Personal identifiers (Aadhaar, PAN, card, phone, email) are removed before any model sees them.
-- Remembers the conversation; borrowers have a daily AI usage limit.
+- Remembers the conversation; an optional daily AI usage limit for borrowers (off by default).
 
 ## A3. Prerequisites
 
@@ -671,8 +671,10 @@ flowchart TD
   review), score and every rule result, product preferences (facility type, card type, ...), officer notes. Names are masked, amounts banded, user-typed fields quoted
   as inert JSON strings.
 - **Memory:** conversation turns persist in `chat_messages` and survive restarts.
-- **Token budget:** borrowers get 50,000 real Groq tokens per day (router + answer, from Groq's own usage numbers),
-  resetting at midnight IST; officers and admins are unlimited.
+- **Token budget (optional, off by default):** setting `GROQ_DAILY_BUDGET_TOKENS` caps each borrower's real Groq
+  tokens per day (router + answer, from Groq's own usage numbers), resetting at midnight IST; officers and admins are
+  always unlimited. It is off for the demo so borrowers never get stuck; the per-user rate limit of 20 chat requests a
+  minute still applies.
 - **Resilience:** Groq 429s are retried up to 3 times honouring `retry-after` (capped at 10 s).
 - **Officer AI case summary** (`app/case_summary.py`, `GET /prequal/{id}/summary`, officers only): rule results →
   masked facts → one Groq call → 5–6 bullet lines, shown in an "AI generated summary" dropdown with the note
@@ -902,7 +904,7 @@ All settings come from environment variables (`.env` locally, `env_file` in Comp
 | `GROQ_API_KEY` / `GROQ_MODEL` / `ROUTER_MODEL` | — / `openai/gpt-oss-20b` / `qwen/qwen3.8-27b` | LLMs |
 | `JINA_API_KEY` / `EMBEDDING_MODEL` | — / `jina-embeddings-v3` | embeddings |
 | `COHERE_API_KEY` / `RERANKER_MODEL` / `RERANK_MIN_SCORE` | — / `rerank-v3.5` / `0.0` | reranking |
-| `GROQ_DAILY_BUDGET_TOKENS` | `50000` | per-borrower daily cap (0 = unlimited) |
+| `GROQ_DAILY_BUDGET_TOKENS` | `0` | optional per-borrower daily cap (0 = unlimited) |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` / `REFRESH_TOKEN_EXPIRE_HOURS` | 5 / 1 | token lifetimes |
 | `SESSION_IDLE_MINUTES` / `SESSION_MAX_HOURS` | 15 / 12 | server-side session limits |
 | `MAX_FAILED_LOGINS` / `MAX_FAILED_OTP` / `LOCKOUT_MINUTES` / `IP_FAILED_LOGIN_LIMIT` | 5 / 5 / 15 / 20 | brute-force protection |
@@ -921,7 +923,7 @@ All settings come from environment variables (`.env` locally, `env_file` in Comp
 | Hardware | runs on a 7 GB RAM laptop with no GPU; all model work is hosted |
 | Cost | ₹0 — free tiers of Groq, Jina, Cohere, Langfuse; GitHub Actions free for public repos |
 | Latency | answers stream token by token; status events ("Searching policy documents…") show progress while retrieving; measured per stage in Langfuse, p50/p95 and time to first words from `eval/latency_report.py`, and gated in CI (p95 ≤ 30 s) |
-| Cost control | per-borrower token budget; EMI, greetings, refusals and "not specified" answers make no LLM call; summaries cached |
+| Cost control | optional per-borrower token budget (off for the demo); EMI, greetings, refusals and "not specified" answers make no LLM call; summaries cached |
 | Reproducibility | every package pinned through `constraints.txt`; Docker and CI use the same Python and pins |
 | Resilience | retries with `Retry-After` on all AI APIs; rerank and AI-summary fallbacks; health-gated startup |
 | Privacy | PII redacted before LLMs and traces; question text hashed in the audit log |

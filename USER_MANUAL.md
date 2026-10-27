@@ -280,7 +280,8 @@ Good to know:
 - The browser logs you out after 5 minutes without activity. Refreshing the page also takes you back to the login page.
 - Open a document on Application Detail to preview it in the page (PDF or image). Seeded documents are blank stub PDFs.
 - 5 wrong passwords lock the account for 15 minutes (longer if it happens again).
-- Borrowers have a daily AI limit of 50,000 tokens; officers and admins are unlimited.
+- There is no daily AI limit by default. To cap each borrower, set `GROQ_DAILY_BUDGET_TOKENS` (for example `50000`)
+  in `.env`; officers and admins are always unlimited.
 
 ---
 
