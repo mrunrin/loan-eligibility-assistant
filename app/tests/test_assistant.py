@@ -49,6 +49,32 @@ def test_preferences_reach_the_application_context():
     assert "Card type" not in text  # unanswered preferences are left out
 
 
+def test_reviewer_view_adds_figures_documents_and_appeal_but_stays_masked():
+    from datetime import date, datetime, timezone
+
+    from app.assistant import _describe
+    from app.models import Document, LoanApplication
+    from app.policy_qa import _mask_context, _prompt
+
+    now = datetime.now(timezone.utc)
+    app = LoanApplication(status="manual_review", product_type="personal_loan", employer_name="Bosch India",
+                          loan_amount_requested=Decimal("800000"), monthly_income=Decimal("70000"),
+                          existing_emis=Decimal("25000"), credit_score=690, employment_type="salaried",
+                          date_of_birth=date(1985, 1, 5), appeal_reason="My old loans close with this one",
+                          created_at=now, updated_at=now)
+    app.documents = [Document(document_type="Photo ID"), Document(document_type="Salary Slip")]
+    borrower_view, reviewer_view = _describe(app, 1, now), _describe(app, 1, now, reviewer=True)
+    assert "Next step:" in borrower_view and "Net monthly income" not in borrower_view
+    assert "Next step:" not in reviewer_view  # the status guide speaks to the borrower
+    assert "Net monthly income: ₹70,000" in reviewer_view and "Existing monthly EMIs: ₹25,000" in reviewer_view
+    assert "Required documents missing: Bank Statement" in reviewer_view
+    assert 'appeal: "My old loans close with this one"' in reviewer_view
+    masked = _mask_context(reviewer_view)
+    assert "70,000" not in masked and "Bosch" not in masked and "Credit score: Fair (650-699)" in masked
+    assert "Never recommend approving" in _prompt("q", [], "", reviewer_view, reviewer=True)
+    assert "Never recommend approving" not in _prompt("q", [], "", borrower_view)
+
+
 def test_parse_route_rejects_untrusted_output():
     assert parse_route("not json", "q") == Route("q", "policy", via="fallback")
     assert parse_route('{"intent": "drop_tables"}', "q").intent == "policy"
@@ -78,10 +104,10 @@ async def session():
     await engine.dispose()
 
 
-async def _user(s, created):
+async def _user(s, created, role="borrower"):
     from app.models import User
 
-    user = User(email=f"t-{uuid.uuid4().hex[:10]}@example.com", hashed_password="x", role="borrower", is_email_verified=True)
+    user = User(email=f"t-{uuid.uuid4().hex[:10]}@example.com", hashed_password="x", role=role, is_email_verified=True)
     s.add(user)
     await s.commit()
     created.append(user.id)
@@ -104,6 +130,29 @@ async def test_application_context_is_owner_scoped(session):
     assert "Rejected" in mine and "Insufficient revenue proof" in mine and "Next step:" in mine
     assert await application_context(s, other) is None
     assert await application_context(s, other, app.id) is None  # another user's id leaks nothing
+
+
+@pytest.mark.anyio
+@pytest.mark.skipif(not _db_available(), reason="PostgreSQL not reachable")
+async def test_only_the_claiming_officer_and_admins_can_discuss_an_application(session):
+    from app.models import LoanApplication
+
+    s, created = session
+    owner, other_borrower = await _user(s, created), await _user(s, created)
+    claimer, other_officer = await _user(s, created, "officer"), await _user(s, created, "officer")
+    admin = await _user(s, created, "admin")
+    app = LoanApplication(applicant_id=owner.id, status="under_review", reviewed_by=claimer.id,
+                          business_name="Owner Co", loan_amount_requested=Decimal("500000"), credit_score=640)
+    s.add(app)
+    await s.commit()
+
+    for allowed in (claimer, admin):
+        text = await application_context(s, allowed, app.id)
+        assert text.startswith("The loan application this user (a loan officer or admin) is reviewing:")
+        assert "Credit score: 640" in text and "Documents uploaded: none" in text
+    for refused in (other_officer, other_borrower):
+        assert await application_context(s, refused, app.id) is None
+    assert await application_context(s, claimer) is None  # without a selected application: only their own
 
 
 @pytest.mark.anyio

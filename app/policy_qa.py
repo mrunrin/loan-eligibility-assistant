@@ -164,6 +164,7 @@ def _prompt(
     conversation_context: str,
     application_context: str | None = None,
     interpreted_as: str | None = None,
+    reviewer: bool = False,
 ) -> str:
     evidence = "\n\n".join(
         f"[S{i}] {d.metadata.get('publisher') or 'Unknown publisher'} — "
@@ -172,7 +173,16 @@ def _prompt(
         for i, d in enumerate(documents, start=1)
     )
     app_section = f"\n<application_context>\n{_mask_context(application_context)}\n</application_context>\n" if application_context else ""
-    app_rule = (
+    reviewer_rule = (
+        "- The user is a loan officer or admin reviewing someone else's application; its data is inside <application_context>. "
+        "Use it to explain the application: its figures, which rules passed or failed and why, which figures are self-reported, "
+        "which documents are uploaded or missing, and any appeal. Do not cite policy passage labels for application facts.\n"
+        "- When asked whether policy supports or works against this application, list the passages that support it and the "
+        "passages that weigh against it, each with its citation, and relate them to the application's figures.\n"
+        "- Never recommend approving or rejecting the application and never predict the decision; the decision belongs to "
+        "the officer. If asked for a recommendation, give the evidence for and against and say the decision is the officer's.\n"
+    )
+    app_rule = reviewer_rule if reviewer and application_context else (
         "- You also have the applicant's own application data inside <application_context>. "
         "Use it to answer questions about their specific application (status, rejection reason, pre-qualification score, rule results, next step). "
         "Do not cite policy passage labels for application-specific facts. "
@@ -181,6 +191,8 @@ def _prompt(
         if application_context else ""
     )
     refusal_rule = (
+        '- If neither the passages nor the application data answer the question, reply exactly: "The policy does not specify that." Do not guess.'
+        if reviewer and application_context else
         '- If neither the passages nor the application data answer the question, reply exactly: "The policy does not specify that." '
         "Questions about the user's own application — when they will get the loan, delays, urgency, why it was rejected, "
         "what to do next — are answered by the application data: state its status, what that status means, and the next step. Do not guess."
@@ -276,11 +288,13 @@ def prepare_answer(
     application_context: str | None = None,
     search_query: str | None = None,
     product: str | None = None,
+    reviewer: bool = False,
 ) -> dict:
     """Guardrails → memory/small talk → retrieval → prompt. Never calls the LLM itself.
 
     search_query is the router's standalone rewrite of a follow-up; retrieval uses it, the prompt keeps the user's words.
     product (the selected application's product) limits evidence to that product plus general rules.
+    reviewer: the application belongs to someone else and the user is the officer or admin reviewing it.
     """
     stage = on_stage or (lambda _msg: None)
     history = history or []
@@ -311,7 +325,7 @@ def prepare_answer(
             stage("Building answer from your application data...")
             return {
                 "kind": "llm",
-                "prompt": _prompt(question, [], _conversation_context(history, question), application_context, query),
+                "prompt": _prompt(question, [], _conversation_context(history, question), application_context, query, reviewer),
                 "source": "application context",
                 "sources": [],
                 "status": "ok",
@@ -324,7 +338,7 @@ def prepare_answer(
     sources = _sources(documents)
     return {
         "kind": "llm",
-        "prompt": _prompt(question, documents, _conversation_context(history, question), application_context, query),
+        "prompt": _prompt(question, documents, _conversation_context(history, question), application_context, query, reviewer),
         "source": f"{sources[0]['document']}, page {sources[0]['page']}",
         "sources": sources,
         "status": "ok",

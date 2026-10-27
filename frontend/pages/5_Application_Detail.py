@@ -118,6 +118,13 @@ if pq:
 else:
     st.info("Pre-qualification not run yet.")
 
+# The backend allows this only for the officer who claimed or decided the application, and for admins.
+if user.get("role") == "admin" or (user.get("role") == "officer" and app.get("reviewed_by") == user.get("id")):
+    if st.button("🤖 Ask the AI assistant about this application", key="ask_bot_staff"):
+        st.session_state["chat_app_id"] = app_id
+        st.switch_page("pages/8_Chat_Assistant.py")
+    st.caption("It explains this application and the policies for and against it. The decision stays yours.")
+
 st.subheader("Documents")
 docs = nav.json_or_none(nav.api("GET", f"/applications/{app_id}/documents"))
 if docs is None:

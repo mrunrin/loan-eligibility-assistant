@@ -40,7 +40,9 @@ See [project_architecture_summary.md](project_architecture_summary.md) for the d
 
 **LoanMitra (RAG + tools)**
 - A small router model rewrites each message into a standalone question and picks a tool:
-  policy search, the borrower's own application record, or an EMI calculator.
+  policy search, the borrower's own application record, or an EMI calculator. A loan officer can open the
+  assistant on an application they claimed (admins on any) to have it explained with the policies for and
+  against it; the assistant never recommends approving or rejecting.
 - Column-aware PDF ingestion with cross-page table merging and clause-aware chunking; every chunk carries
   `product`, `publisher` and `effective_date` metadata.
 - Hybrid retrieval (ChromaDB dense with Jina query/passage embeddings + BM25) → Cohere rerank → relevance floor.
@@ -254,7 +256,7 @@ Open before the final demo:
 - Uploaded files are stored on local disk (a Docker volume), not object storage; status emails are sent by
   in-process background tasks, not a job queue.
 - The policy corpus is 5 HDFC PDFs (personal loan, business loan, credit card) + 4 HDFC/RBI
-  MD files — not a full bank policy set; the evaluation sets are small (9 retrieval,
+  MD files + 1 LoanMitra portal policy written for this demo — not a full bank policy set; the evaluation sets are small (9 retrieval,
   9 answer cases) and the faithfulness check covers numbers only.
 
 ## Troubleshooting

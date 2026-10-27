@@ -76,7 +76,7 @@ jobs:
           JINA_API_KEY: ${{ secrets.JINA_API_KEY }}
           COHERE_API_KEY: ${{ secrets.COHERE_API_KEY }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
-          # 0 = unlimited; the eval user is a borrower and would hit the 10,000-token daily budget.
+          # 0 = unlimited; the eval user is a borrower and would hit the 50,000-token daily budget.
           GROQ_DAILY_BUDGET_TOKENS: "0"
         run: |
           uvicorn app.main:app --host 0.0.0.0 --port 8000 > /tmp/backend.log 2>&1 &
