@@ -22,7 +22,7 @@ What reaches Groq is reduced before the prompt is built:
 
 The system only operates on **synthetic data** (see ADR-000). No real customer PII is ever in the system.
 
-**Per-borrower daily token budget:** `GROQ_DAILY_BUDGET_TOKENS` (default 50,000). Every Groq call adds the `usage.total_tokens` that Groq reports (router and answer, streaming included) to a per-request meter; the total is charged to the borrower after the request, even if the client disconnects. A request is allowed while the borrower is under budget; the day resets at midnight IST. Officers and admins are unlimited.
+**Per-borrower daily token budget (optional):** `GROQ_DAILY_BUDGET_TOKENS` (default 0 = off, so demos never stall; set e.g. 50,000 to enable). Every Groq call adds the `usage.total_tokens` that Groq reports (router and answer, streaming included) to a per-request meter; the total is charged to the borrower after the request, even if the client disconnects. A request is allowed while the borrower is under budget; the day resets at midnight IST. Officers and admins are unlimited.
 
 ## Alternatives rejected
 
@@ -35,7 +35,7 @@ The system only operates on **synthetic data** (see ADR-000). No real customer P
 
 ## Consequences
 
-- **Free tier rate limits:** Groq's free tier has daily token limits. If one session exhausts the quota, all users are blocked until the next day. Mitigated by the per-borrower daily budget above and the per-user request rate limit ([ADR-015](015-rate-limiting.md)). There is no offline answer fallback; all model work runs on hosted APIs ([ADR-020](020-hosted-embeddings-rerank.md)) and an unavailable Groq returns a clear error.
+- **Free tier rate limits:** Groq's free tier has daily token limits. If one session exhausts the quota, all users are blocked until the next day. Mitigated by the optional per-borrower daily budget above (off by default for the demo) and the per-user request rate limit ([ADR-015](015-rate-limiting.md)). There is no offline answer fallback; all model work runs on hosted APIs ([ADR-020](020-hosted-embeddings-rerank.md)) and an unavailable Groq returns a clear error.
 - **Budget storage:** the budget is kept in process memory (one backend worker); a restart resets it. The last request of the day can overshoot by its own size, because its cost is only known afterwards.
 - **Data residency:** Groq serves from the US. Masked synthetic data is not a compliance risk for this demo; in production, a private in-region endpoint is required.
 - **Latency:** Groq's inference is fast (~200–400 token/s). Acceptable for a demo.

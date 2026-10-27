@@ -17,8 +17,9 @@ GROQ_MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-20b")
 # Small model for query rewriting + intent routing; Groq rate limits are per model, so this
 # keeps routing calls out of the answer model's tokens-per-minute budget.
 ROUTER_MODEL = os.getenv("ROUTER_MODEL", "qwen/qwen3.8-27b")
-# Per-borrower daily token budget. 0 or empty = unlimited; unset = 50000 (officers/admins are always unlimited).
-_budget_raw = os.getenv("GROQ_DAILY_BUDGET_TOKENS", "50000")
+# Optional per-borrower daily token budget; off by default (0 = unlimited) so demos never stall.
+# Set a number (e.g. 50000) to cap each borrower; officers/admins are always unlimited.
+_budget_raw = os.getenv("GROQ_DAILY_BUDGET_TOKENS", "0")
 GROQ_DAILY_BUDGET_TOKENS: int | None = int(_budget_raw) if _budget_raw.strip().isdigit() else None
 PDF_PATH = Path(os.getenv("PDF_PATH")) if os.getenv("PDF_PATH") else None
 VECTORSTORE_PATH = Path(os.getenv("VECTORSTORE_PATH", str(BASE_DIR / "vectorstore")))
