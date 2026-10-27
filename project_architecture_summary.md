@@ -4,7 +4,8 @@
 A loan origination portal (business loan, personal loan and credit card applications, deterministic
 pre-qualification, officer review, admin) with **LoanMitra**, a grounded assistant that answers from the
 policy knowledge base — 5 HDFC PDFs (personal and business loan agreements, credit card agreement, MITC and FAQ) + 4 HDFC/RBI
-MD files — with clause-level citations, and can also explain the borrower's own application or compute an EMI.
+MD files + 1 LoanMitra portal policy MD file — with clause-level citations, and can also explain the borrower's own
+application (or, for the reviewing officer or an admin, the application under review) or compute an EMI.
 Student capstone demo; not an official HDFC Bank service.
 
 ---
@@ -98,8 +99,11 @@ wiped and rebuilt once automatically.
   history turn; greetings and name memory answered without a model.
 - **Route** (`assistant.route`): one `ROUTER_MODEL` call (JSON mode) returns a standalone rewrite, an intent
   (`policy` / `my_application` / `emi` / `small_talk` / `out_of_scope`) and EMI slots; output is validated.
-- **Tools**: policy search; the user's own applications (owner-scoped SQL on the JWT user; user-typed fields
-  quoted as inert data, names masked); deterministic EMI calculator.
+- **Tools**: policy search; application data scoped by SQL on the JWT user — a borrower's own applications, and for
+  one selected application also the officer who claimed or decided it and any admin (reviewers also get the typed
+  figures, document checklist and appeal; the prompt lists evidence for and against and never recommends a decision;
+  each reviewer use writes an `assistant_application_viewed` audit event; user-typed fields quoted as inert data,
+  names masked, amounts banded); deterministic EMI calculator.
 - **Ingestion** (`app/doc_pipeline.py` + `app/chunking.py` + `app/retrieval.py`): PyMuPDF column-aware text with table regions
   removed, page classification (blank pages skipped), pdfplumber tables merged across pages and serialized
   as row chunks, clause-aware parent/child chunks (NLTK sentence splitting for long clauses). MD source headers

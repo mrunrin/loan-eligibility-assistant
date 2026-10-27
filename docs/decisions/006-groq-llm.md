@@ -22,7 +22,7 @@ What reaches Groq is reduced before the prompt is built:
 
 The system only operates on **synthetic data** (see ADR-000). No real customer PII is ever in the system.
 
-**Per-borrower daily token budget:** `GROQ_DAILY_BUDGET_TOKENS` (default 10,000). Every Groq call adds the `usage.total_tokens` that Groq reports (router and answer, streaming included) to a per-request meter; the total is charged to the borrower after the request, even if the client disconnects. A request is allowed while the borrower is under budget; the day resets at midnight IST. Officers and admins are unlimited.
+**Per-borrower daily token budget:** `GROQ_DAILY_BUDGET_TOKENS` (default 50,000). Every Groq call adds the `usage.total_tokens` that Groq reports (router and answer, streaming included) to a per-request meter; the total is charged to the borrower after the request, even if the client disconnects. A request is allowed while the borrower is under budget; the day resets at midnight IST. Officers and admins are unlimited.
 
 ## Alternatives rejected
 

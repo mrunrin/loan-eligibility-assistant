@@ -21,16 +21,18 @@ from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
 from fastapi.concurrency import run_in_threadpool
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app import policy_qa
+from app.audit import record_db_event
 from app.config import MAX_HISTORY_MESSAGES, ROUTER_MODEL
 from app.guardrails_config import check_input
 from app.llm import groq_chat
 from app.models import PRODUCT_LABELS, ChatMessage, LoanApplication, User
-from app.prequal import emi
+from app.prequal import _age, emi
+from app.routers.applications import REQUIRED_DOCUMENTS
 
 logger = logging.getLogger(__name__)
 
@@ -206,7 +208,48 @@ def _preference(value) -> str:
     return _PREFERENCE_VALUES.get(value, str(value).replace("_", " "))
 
 
-def _describe(app: LoanApplication, index: int, now: datetime) -> str:
+# Form figures shown to a reviewing officer or admin; ₹ values and "Credit score: N" are banded by _mask_context.
+_REVIEW_FIELDS = (
+    ("business_type", "Business type"),
+    ("years_in_business", "Years in business"),
+    ("annual_revenue", "Annual revenue"),
+    ("monthly_emi_capacity", "Monthly EMI the business says it can pay"),
+    ("employment_type", "Employment type"),
+    ("work_experience_years", "Total work experience (years)"),
+    ("current_job_years", "Years with current employer"),
+    ("monthly_income", "Net monthly income"),
+    ("existing_emis", "Existing monthly EMIs"),
+    ("credit_score", "Credit score"),
+)
+_MONEY_FIELDS = {"annual_revenue", "monthly_emi_capacity", "monthly_income", "existing_emis"}
+
+
+def _review_details(app: LoanApplication, now: datetime) -> list[str]:
+    """Everything a reviewer needs beyond the borrower view: typed figures, document checklist, appeal."""
+    lines = ["Figures typed by the applicant (self-reported, unverified until documents are checked):"]
+    if app.date_of_birth:
+        lines.append(f"  - Age: {_age(app.date_of_birth, now.date())}")
+    for field, label in _REVIEW_FIELDS:
+        value = getattr(app, field)
+        if value is None:
+            continue
+        if field in _MONEY_FIELDS:
+            value = f"₹{value:,.0f}"
+        elif isinstance(value, str):
+            value = _quoted(value.replace("_", " "))
+        lines.append(f"  - {label}: {value}")
+    uploaded = sorted({d.document_type or "Other" for d in app.documents})
+    missing = [d for d in REQUIRED_DOCUMENTS.get(app.product_type, []) if d not in uploaded]
+    lines += [
+        f"Documents uploaded: {', '.join(uploaded) or 'none'}",
+        f"Required documents missing: {', '.join(missing) or 'none'}",
+    ]
+    if app.appeal_reason:
+        lines.append(f"Applicant's written appeal: {_quoted(app.appeal_reason)}")
+    return lines
+
+
+def _describe(app: LoanApplication, index: int, now: datetime, reviewer: bool = False) -> str:
     meaning, next_step = STATUS_GUIDE.get(app.status, ("", ""))
     name = app.business_name if app.product_type == "business_loan" else app.employer_name
     lines = [
@@ -214,9 +257,9 @@ def _describe(app: LoanApplication, index: int, now: datetime) -> str:
         f"Name on application: {_quoted(name)}",
         f"Product: {PRODUCT_LABELS.get(app.product_type, app.product_type)}",
         f"Status: {app.status.replace('_', ' ').title()}",
-        f"What this status means: {meaning}",
-        f"Next step: {next_step}",
     ]
+    if not reviewer:  # the status guide is written to the borrower ("withdrawn by you", "no action needed")
+        lines += [f"What this status means: {meaning}", f"Next step: {next_step}"]
     if app.product_type != "credit_card":
         lines += [
             f"Loan amount requested: ₹{app.loan_amount_requested:,.0f}" if app.loan_amount_requested else "Loan amount requested: not specified",
@@ -224,6 +267,8 @@ def _describe(app: LoanApplication, index: int, now: datetime) -> str:
         ]
     prefs = app.preferences or {}
     lines += [f"{label}: {_preference(prefs[key])}" for key, label in PREFERENCE_LABELS.items() if prefs.get(key) is not None]
+    if reviewer:
+        lines += _review_details(app, now)
     lines += [
         f"Created on: {app.created_at:%d %b %Y} ({(now - app.created_at).days} days ago)",
         f"Last updated: {app.updated_at:%d %b %Y}",
@@ -243,12 +288,24 @@ def _describe(app: LoanApplication, index: int, now: datetime) -> str:
     return "\n".join(lines)
 
 
+def _visible(stmt, user: User, application_id: uuid.UUID | None):
+    """Who may discuss an application with the assistant — a WHERE clause on the JWT user, never an LLM decision.
+
+    Everyone: their own applications. For one selected application, also the officer who claimed or decided it,
+    and any admin. Officers cannot browse other officers' or unclaimed applications through the chat.
+    """
+    if application_id is None or user.role == "borrower":
+        return stmt.where(LoanApplication.applicant_id == user.id)
+    if user.role == "admin":
+        return stmt
+    return stmt.where(or_(LoanApplication.applicant_id == user.id, LoanApplication.reviewed_by == user.id))
+
+
 async def application_context(db: AsyncSession, user: User, application_id: uuid.UUID | None = None) -> str | None:
-    """The caller's own applications only — ownership is a WHERE clause, never an LLM decision."""
-    stmt = (
-        select(LoanApplication)
-        .options(selectinload(LoanApplication.prequal_result))
-        .where(LoanApplication.applicant_id == user.id)
+    """Applications the caller may discuss (see _visible); a reviewer also gets the figures, documents and appeal."""
+    stmt = _visible(
+        select(LoanApplication).options(selectinload(LoanApplication.prequal_result), selectinload(LoanApplication.documents)),
+        user, application_id,
     )
     if application_id:
         stmt = stmt.where(LoanApplication.id == application_id)
@@ -258,8 +315,10 @@ async def application_context(db: AsyncSession, user: User, application_id: uuid
     if not apps:
         return None
     now = datetime.now(timezone.utc)
-    header = "The user's loan applications (most recently updated first):"
-    return "\n\n".join([header, *(_describe(a, i, now) for i, a in enumerate(apps, 1))])
+    reviewer = apps[0].applicant_id != user.id  # a selected application someone else submitted
+    header = ("The loan application this user (a loan officer or admin) is reviewing:" if reviewer
+              else "The user's loan applications (most recently updated first):")
+    return "\n\n".join([header, *(_describe(a, i, now, reviewer) for i, a in enumerate(apps, 1))])
 
 
 def emi_answer(r: Route) -> dict:
@@ -326,21 +385,28 @@ async def _dispatch(question, history, user, db, application_id, r: Route, on_st
     if r.intent == "emi":
         return emi_answer(r)
 
+    # A selected application narrows policy search to its product; access is the same WHERE clause as the context.
+    product, reviewer = None, False
+    if application_id:
+        row = (await db.execute(_visible(
+            select(LoanApplication.product_type, LoanApplication.applicant_id).where(LoanApplication.id == application_id),
+            user, application_id,
+        ))).first()
+        if row:
+            product, reviewer = row.product_type, row.applicant_id != user.id
+
     context = None
     if r.intent == "my_application" or application_id:
         context = await application_context(db, user, application_id)
         if r.intent == "my_application" and context is None:
             return policy_qa._direct(NO_APPLICATION_ANSWER, "your applications", "no_application")
-    # A selected application narrows policy search to its product; ownership is a WHERE clause on the JWT user.
-    product = None
-    if application_id:
-        product = (await db.execute(
-            select(LoanApplication.product_type)
-            .where(LoanApplication.id == application_id, LoanApplication.applicant_id == user.id)
-        )).scalar_one_or_none()
+    if reviewer and context:
+        # Staff reading someone else's file through the assistant is auditable, like a document download.
+        record_db_event(db, event_type="assistant_application_viewed", user_id=user.id,
+                        payload={"application_id": str(application_id)})
     # Policy search runs for my_application too: "what should I do now" needs both the record and the rules.
     return await run_in_threadpool(
-        policy_qa.prepare_answer, question, history, on_stage, context, r.standalone, product
+        policy_qa.prepare_answer, question, history, on_stage, context, r.standalone, product, reviewer
     )
 
 

@@ -113,6 +113,7 @@ class ApplicationListOut(BaseModel):
     loan_amount_requested: float | None
     business_name: str | None
     created_at: str | None = None
+    reviewed_by: str | None = None
 
 
 class ApplicationOut(BaseModel):
@@ -141,6 +142,7 @@ class ApplicationOut(BaseModel):
     created_at: str | None = None
     appeal_reason: str | None = None
     required_documents: list[str] = []
+    reviewed_by: str | None = None
 
 
 class AppealRequest(BaseModel):
@@ -171,6 +173,7 @@ def _to_list_out(app: LoanApplication) -> ApplicationListOut:
         loan_amount_requested=_num(app.loan_amount_requested),
         business_name=app.business_name,
         created_at=app.created_at.isoformat() if app.created_at else None,
+        reviewed_by=str(app.reviewed_by) if app.reviewed_by else None,
     )
 
 
@@ -201,6 +204,7 @@ def _to_out(app: LoanApplication) -> ApplicationOut:
         created_at=app.created_at.isoformat() if app.created_at else None,
         appeal_reason=app.appeal_reason,
         required_documents=REQUIRED_DOCUMENTS.get(app.product_type, []),
+        reviewed_by=str(app.reviewed_by) if app.reviewed_by else None,
     )
 
 

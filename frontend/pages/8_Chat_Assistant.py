@@ -8,7 +8,7 @@ import streamlit as st
 PAGE = "pages/8_Chat_Assistant.py"
 
 st.set_page_config(page_title="AI Loan Assistant — Loan Portal", layout="wide")
-nav.require_login()
+user = nav.require_login()
 nav.render_sidebar(current_page=PAGE)
 
 
@@ -19,6 +19,8 @@ st.caption("Policy answers come from public HDFC Bank and RBI documents. This is
 # ── Application selector ────────────────────────────────────────────────────
 resp_apps = nav.api("GET", "/applications", params={"limit": 50, "offset": 0})
 all_apps = nav.json_or_none(resp_apps) or []
+if user.get("role") == "officer":  # the assistant only opens applications this officer claimed or decided
+    all_apps = [a for a in all_apps if a.get("reviewed_by") == user.get("id")]
 app_options = {a["id"]: f"{a.get('title') or 'Untitled'} —{a['status'].replace('_', ' ').title()}" for a in all_apps}
 
 preselected = st.session_state.pop("chat_app_id", None)

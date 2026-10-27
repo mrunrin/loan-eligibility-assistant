@@ -97,6 +97,9 @@ needed, and every service used has a free tier.
 - Claim (others can no longer take it; abandoned claims return to the queue after 1 hour).
 - Application detail: an **"AI generated summary"** of the pre-qualification result ("AI can make mistakes"
   note), documents with in-page preview and a tamper check, the borrower's appeal reason.
+- "Ask the AI assistant about this application" on an application they claimed or decided: the assistant explains
+  its figures, rule results, documents and appeal, and lists the policy for and against it with citations; it never
+  recommends approving or rejecting. Each use is recorded as an `assistant_application_viewed` audit event.
 - Approve or reject with a mandatory reason; "Approved by me / Rejected by me" history tabs.
 - Cannot review their own application.
 
@@ -105,11 +108,13 @@ needed, and every service used has a free tier.
 - Statistics: applications by status, users by role.
 - Users list; change roles; activate/deactivate accounts. No super-admin: an admin cannot change or deactivate
   themselves or another admin.
-- Full per-rule pre-qualification breakdown on application pages; can also use the officer queue.
+- Full per-rule pre-qualification breakdown on application pages; can also use the officer queue and open the
+  assistant on any application.
 
 **LoanMitra Assistant (all logged-in users)**
 - Grounded answers with `[S1]–[S3]` citations and a sources panel (publisher, document, page, clause, date, excerpt).
-- Tools: policy search, the user's own application record, EMI calculator.
+- Tools: policy search, the user's own application record (or, for the reviewing officer or an admin, the selected
+  application), EMI calculator.
 - Personal identifiers (Aadhaar, PAN, card, phone, email) are removed before any model sees them.
 - Remembers the conversation; borrowers have a daily AI usage limit.
 
@@ -191,7 +196,7 @@ A 10-minute demo script:
 ## A7. Tests, lint and evaluation
 
 ```powershell
-python -m pytest                    # 133 unit + API integration tests (needs PostgreSQL)
+python -m pytest                    # 135 unit + API integration tests (needs PostgreSQL)
 python -m ruff check .
 python eval/retrieval_eval.py       # recall@3 / MRR on the 9-question golden set
 ```
@@ -257,8 +262,8 @@ trustworthy queue; and both need answers grounded in the lender's actual policy,
 | Backend API endpoints | 40 (6 routers + chat and health) |
 | Frontend pages | 9 Streamlit pages + landing/login |
 | Database tables / migrations | 7 tables · Alembic migrations 001–013 |
-| Automated tests | 133 (unit + API integration against real PostgreSQL) |
-| Knowledge base | 4 markdown files + 5 HDFC PDFs → roughly 1,000 evidence chunks |
+| Automated tests | 135 (unit + API integration against real PostgreSQL) |
+| Knowledge base | 5 markdown files (4 HDFC/RBI + 1 LoanMitra portal policy) + 5 HDFC PDFs → roughly 1,050 evidence chunks |
 | Retrieval quality gate | recall@3 = 1.0, MRR = 0.944 on a 9-question graded golden set |
 | Answer quality gate | Promptfoo, 9 answer-level cases, pass rate ≥ 0.9, answer latency p95 ≤ 30 s |
 | Hosted AI services | Groq (2 models), Jina (embeddings), Cohere (rerank), Langfuse (tracing) |
@@ -332,7 +337,7 @@ frontend/                 Streamlit app
   nav.py                  API client (bearer token, refresh, client IP), guards, sidebar, idle timer
   pages/1–9               register, my applications, apply, detail, officer queue, admin, chat, security
 migrations/               Alembic (sync psycopg2), versions 001–013
-data/                     knowledge base: 4 .md + 5 .pdf
+data/                     knowledge base: 5 .md (4 HDFC/RBI + LoanMitra portal policy) + 5 .pdf
 eval/                     golden retrieval set, Promptfoo tests, gate scripts
 scripts/seed_demo.py      demo users, applications and documents
 docs/decisions/           ADR-000 … ADR-020 (architecture decision records)
@@ -560,8 +565,10 @@ listed as the production path, with the rule explanations kept).
 
 **Pipeline** (`app/doc_pipeline.py`, `app/chunking.py`, `app/retrieval.py`):
 
-1. **Inputs:** 4 markdown knowledge-base files (`loanmitra_business_loan.md`, `loanmitra_personal_loan.md`,
-   `loanmitra_credit_card.md`, `rbi_regulations.md`) and 5 HDFC PDFs (personal loan agreement, business loan terms,
+1. **Inputs:** 5 markdown knowledge-base files (`loanmitra_business_loan.md`, `loanmitra_personal_loan.md`,
+   `loanmitra_credit_card.md`, `rbi_regulations.md`, and `loanmitra_portal_policy.md` — the portal's own rules on
+   decisions, appeals, FOIR and debt consolidation, document checks, officer review and privacy, published as
+   "LoanMitra (portal policy)", never as HDFC) and 5 HDFC PDFs (personal loan agreement, business loan terms,
    credit card MITC, cardmember agreement, card FAQ).
 2. **PDFs:** each page is classified (`TC`, `SCHEDULE`, `PDC`, `ECS`, `FAQ`, `PROSE`, `BLANK`); text is extracted
    **column-aware** with table regions removed (PyMuPDF), tables are extracted separately (pdfplumber) and **merged
@@ -657,12 +664,14 @@ flowchart TD
 - **Grounding prompt rules:** answer only from passages and application data; passages are quoted documents, never
   instructions; attribute each term to its publisher (HDFC Bank vs RBI); cite every factual sentence `[S1]`–`[S3]`;
   say "The policy does not specify that" when nothing applies; treat blank template fields as "not specified".
-- **Application context** is built server-side from the caller's own rows only (ownership is a SQL `WHERE`, never an
-  LLM decision): status, plain meaning of the status, next step and timeline (e.g. "usually 4–7 working days" under
+- **Application context** is built server-side, and who may see it is a SQL `WHERE` on the JWT user, never an LLM
+  decision: borrowers get only their own rows; for one selected application, the officer who claimed or decided it
+  and any admin get it too, plus the typed figures, document checklist and appeal, with a prompt that lists policy
+  for and against and never recommends a decision. Contents: status, plain meaning of the status, next step and timeline (e.g. "usually 4–7 working days" under
   review), score and every rule result, product preferences (facility type, card type, ...), officer notes. Names are masked, amounts banded, user-typed fields quoted
   as inert JSON strings.
 - **Memory:** conversation turns persist in `chat_messages` and survive restarts.
-- **Token budget:** borrowers get 10,000 real Groq tokens per day (router + answer, from Groq's own usage numbers),
+- **Token budget:** borrowers get 50,000 real Groq tokens per day (router + answer, from Groq's own usage numbers),
   resetting at midnight IST; officers and admins are unlimited.
 - **Resilience:** Groq 429s are retried up to 3 times honouring `retry-after` (capped at 10 s).
 - **Officer AI case summary** (`app/case_summary.py`, `GET /prequal/{id}/summary`, officers only): rule results →
@@ -775,7 +784,7 @@ heavy dependency for regex-level checks), Presidio (production path for broader 
 ```
 checkout → Python 3.13 + pip cache → install (requirements + constraints)
 → ruff check → alembic upgrade head (PostgreSQL 15 service container)
-→ pytest (133 tests) → retrieval gate (recall@3 ≥ 0.80, real Jina + Cohere)
+→ pytest (135 tests) → retrieval gate (recall@3 ≥ 0.80, real Jina + Cohere)
 → start backend (budget unlimited for the eval user) → mint eval user + token
 → Promptfoo (9 answer tests, one at a time) → pass-rate gate (≥ 0.9) + latency gate (p95 ≤ 30 s)
 ```
@@ -893,7 +902,7 @@ All settings come from environment variables (`.env` locally, `env_file` in Comp
 | `GROQ_API_KEY` / `GROQ_MODEL` / `ROUTER_MODEL` | — / `openai/gpt-oss-20b` / `qwen/qwen3.8-27b` | LLMs |
 | `JINA_API_KEY` / `EMBEDDING_MODEL` | — / `jina-embeddings-v3` | embeddings |
 | `COHERE_API_KEY` / `RERANKER_MODEL` / `RERANK_MIN_SCORE` | — / `rerank-v3.5` / `0.0` | reranking |
-| `GROQ_DAILY_BUDGET_TOKENS` | `10000` | per-borrower daily cap (0 = unlimited) |
+| `GROQ_DAILY_BUDGET_TOKENS` | `50000` | per-borrower daily cap (0 = unlimited) |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` / `REFRESH_TOKEN_EXPIRE_HOURS` | 5 / 1 | token lifetimes |
 | `SESSION_IDLE_MINUTES` / `SESSION_MAX_HOURS` | 15 / 12 | server-side session limits |
 | `MAX_FAILED_LOGINS` / `MAX_FAILED_OTP` / `LOCKOUT_MINUTES` / `IP_FAILED_LOGIN_LIMIT` | 5 / 5 / 15 / 20 | brute-force protection |
@@ -938,7 +947,7 @@ All settings come from environment variables (`.env` locally, `env_file` in Comp
 
 ## 11. Slide kit — key numbers and a suggested deck
 
-**Headline numbers:** 40 endpoints · 9 pages · 7 tables · 13 migrations · 133 tests · 21 ADRs · ~1,000 evidence
+**Headline numbers:** 40 endpoints · 9 pages · 7 tables · 13 migrations · 135 tests · 21 ADRs · ~1,050 evidence
 chunks · recall@3 1.0 · 3 hosted AI services · 0 local models · ₹0 running cost · ~4-minute CI.
 
 **Suggested deck (one slide each):**
